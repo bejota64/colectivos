@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Descargar el codigo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Credenciales aleatorias, solo para las bases desechables de esta
       # corrida. No hay contrasenas escritas en el repositorio.
@@ -72,9 +72,9 @@ jobs:
           exit 1
 
       - name: Preparar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: api-eva3/package-lock.json
 
