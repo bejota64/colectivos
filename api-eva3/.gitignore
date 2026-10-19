@@ -1,0 +1,15 @@
+# Dependencias y compilados
+node_modules/
+dist/
+coverage/
+
+# Secretos: NUNCA se suben. Solo se sube .env.ejemplo
+.env
+.env.*
+!.env.ejemplo
+
+# Archivos locales
+*.log
+cookies.txt
+.DS_Store
+Thumbs.db
