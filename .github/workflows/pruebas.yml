@@ -38,7 +38,11 @@ jobs:
           MG=$(openssl rand -hex 24)
           PG_API=$(openssl rand -hex 24)
           MG_API=$(openssl rand -hex 24)
-          for SECRETO in "$PG" "$MG" "$PG_API" "$MG_API"; do echo "::add-mask::$SECRETO"; done
+          JWT=$(openssl rand -hex 32)
+          # Hallazgo V-09: el secreto JWT tambien se enmascara. Antes se
+          # generaba dentro del echo y quedaba visible en el registro publico
+          # de cada ejecucion.
+          for SECRETO in "$PG" "$MG" "$PG_API" "$MG_API" "$JWT"; do echo "::add-mask::$SECRETO"; done
           {
             echo "POSTGRES_USUARIO=colectivos_admin"
             echo "POSTGRES_CONTRASENA=$PG"
@@ -52,7 +56,7 @@ jobs:
             echo "URL_MONGO=mongodb://colectivos_api:$MG_API@localhost:27017/colectivos?authSource=colectivos"
             echo "URL_POSTGRES_ADMIN=postgresql://colectivos_admin:$PG@localhost:5432/colectivos"
             echo "URL_MONGO_ADMIN=mongodb://colectivos_admin:$MG@localhost:27017/?authSource=admin"
-            echo "SECRETO_JWT=$(openssl rand -hex 32)"
+            echo "SECRETO_JWT=$JWT"
             echo "NODE_ENV=test"
             echo "PUERTO=3000"
             echo "LIMITE_GENERAL_POR_MINUTO=100"
