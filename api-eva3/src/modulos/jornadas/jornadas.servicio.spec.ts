@@ -84,6 +84,11 @@ describe('JornadasServicio', () => {
         if (j) j.asientos_disponibles = asientos;
         return Promise.resolve(Boolean(j));
       },
+      cambiarSentido: (id: string, sentidoId: string) => {
+        const j = jornadas.find((x) => x.id === id);
+        if (j) j.sentido_actual_id = sentidoId;
+        return Promise.resolve(Boolean(j));
+      },
       cerrar: (id: string) => {
         const antes = jornadas.length;
         jornadas = jornadas.filter((j) => j.id !== id);
@@ -110,9 +115,11 @@ describe('JornadasServicio', () => {
         Promise.resolve(
           id === IDS.sentidoIda
             ? SENTIDO_IDA
-            : id === 'sentido-ajeno'
-              ? { ...SENTIDO_IDA, id, trazado_id: IDS.otroTrazado }
-              : null,
+            : id === 'sentido-vuelta'
+              ? { ...SENTIDO_IDA, id, sentido: 'vuelta' }
+              : id === 'sentido-ajeno'
+                ? { ...SENTIDO_IDA, id, trazado_id: IDS.otroTrazado }
+                : null,
         ),
     } as unknown as TrazadosRepositorio;
 
@@ -216,6 +223,39 @@ describe('JornadasServicio', () => {
       await servicio.cerrar(IDS.conductor1);
       expect(jornadas).toHaveLength(0);
       expect(auditoria.eventos[1].tipo).toBe('fin_jornada');
+    });
+  });
+
+  describe('Cambio de sentido en el terminal', () => {
+    beforeEach(async () => {
+      await abrir();
+    });
+
+    it('cambia al otro sentido de su trazado', async () => {
+      const jornada = await servicio.cambiarSentido(IDS.conductor1, 'sentido-vuelta');
+      expect(jornada.sentido_actual_id).toBe('sentido-vuelta');
+    });
+
+    it('un sentido de otro trazado responde 404', async () => {
+      await expect(servicio.cambiarSentido(IDS.conductor1, 'sentido-ajeno')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(jornadas[0].sentido_actual_id).toBe(IDS.sentidoIda);
+    });
+  });
+
+  describe('CU-12: conductor deshabilitado por el representante', () => {
+    it('su siguiente accion cierra la jornada, responde "Jornada cerrada" y queda auditado', async () => {
+      await abrir();
+      conductorHabilitado = false;
+      await expect(servicio.cambiarAsientos(IDS.conductor1, 2, AHORA)).rejects.toMatchObject({
+        message: MENSAJE_JORNADA_CERRADA,
+      });
+      expect(jornadas).toHaveLength(0);
+      expect(auditoria.eventos[1]).toMatchObject({
+        tipo: 'fin_jornada',
+        detalle: { motivo: 'conductor_deshabilitado' },
+      });
     });
   });
 });

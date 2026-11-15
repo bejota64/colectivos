@@ -41,10 +41,29 @@ export class JornadasServicio {
     private readonly auditoria: AuditoriaServicio,
   ) {}
 
-  /** Jornada abierta del conductor, o 409 "Jornada cerrada". */
+  /**
+   * Jornada abierta del conductor, o 409 "Jornada cerrada" (regla 8).
+   * Si el representante lo deshabilito mientras trabajaba, su jornada se
+   * cierra aqui, en su siguiente accion (CU-12).
+   */
   async exigirAbierta(conductorId: string): Promise<JornadaFila> {
     const jornada = await this.jornadas.buscarAbiertaDeConductor(conductorId);
     if (!jornada) {
+      throw new ConflictException(MENSAJE_JORNADA_CERRADA);
+    }
+    const conductor = await this.flota.buscarConductor(conductorId);
+    if (!conductor?.habilitado) {
+      if (await this.jornadas.cerrar(jornada.id)) {
+        await this.auditoria.registrar({
+          tipo: 'fin_jornada',
+          usuarioId: conductorId,
+          detalle: {
+            jornada_id: jornada.id,
+            patente: jornada.patente,
+            motivo: 'conductor_deshabilitado',
+          },
+        });
+      }
       throw new ConflictException(MENSAJE_JORNADA_CERRADA);
     }
     return jornada;

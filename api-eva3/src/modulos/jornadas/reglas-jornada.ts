@@ -48,6 +48,30 @@ export function motivoAsientosInvalidos(
   return null;
 }
 
+/** CU-08: una jornada sin señal por 30 minutos se cierra sola... */
+export const SIN_SENAL_PARA_CERRAR_MS = 30 * 60 * 1000;
+/** ...revisando cada 5 minutos. */
+export const INTERVALO_CIERRE_AUTOMATICO_MS = 5 * 60 * 1000;
+
+export type MotivoCierreAutomatico = 'sin_senal' | 'conductor_deshabilitado';
+
+/**
+ * Decide si el cierre automatico debe cerrar una jornada. Si nunca envio
+ * una posicion, se cuenta desde que se abrio.
+ */
+export function motivoCierreAutomatico(
+  jornada: { ultimaSenal: Date | null; iniciadaEn: Date; conductorHabilitado: boolean },
+  ahora: Date,
+): MotivoCierreAutomatico | null {
+  if (!jornada.conductorHabilitado) {
+    return 'conductor_deshabilitado';
+  }
+  const desde = jornada.ultimaSenal ?? jornada.iniciadaEn;
+  return ahora.getTime() - desde.getTime() > SIN_SENAL_PARA_CERRAR_MS
+    ? 'sin_senal'
+    : null;
+}
+
 export interface Muestra {
   coordenada: Coordenada;
   en: Date;

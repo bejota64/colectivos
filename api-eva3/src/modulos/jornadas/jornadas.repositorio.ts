@@ -30,6 +30,15 @@ const SELECCION_ABIERTA = `
   JOIN vehiculos v ON v.id = j.vehiculo_id
   WHERE j.finalizada_en IS NULL`;
 
+/** Jornada abierta, con lo que necesita el cierre automatico. */
+export interface JornadaAbiertaFila {
+  id: string;
+  conductor_id: string;
+  patente: string;
+  iniciada_en: Date;
+  conductor_habilitado: boolean;
+}
+
 @Injectable()
 export class JornadasRepositorio {
   constructor(private readonly baseDatos: BaseDatosServicio) {}
@@ -121,5 +130,31 @@ export class JornadasRepositorio {
       [jornadaId],
     );
     return filas.length === 1;
+  }
+
+  /** Todas las jornadas abiertas, para el cierre automatico (CU-08). */
+  listarAbiertas(): Promise<JornadaAbiertaFila[]> {
+    return this.baseDatos.consultar<JornadaAbiertaFila>(
+      `SELECT j.id, j.conductor_id, v.patente, j.iniciada_en,
+              c.habilitado AS conductor_habilitado
+       FROM jornadas j
+       JOIN vehiculos v   ON v.id = j.vehiculo_id
+       JOIN conductores c ON c.usuario_id = j.conductor_id
+       WHERE j.finalizada_en IS NULL`,
+    );
+  }
+
+  /** Jornadas abiertas de un trazado, para el representante. */
+  listarAbiertasDeTrazado(trazadoId: string): Promise<JornadaAbiertaFila[]> {
+    return this.baseDatos.consultar<JornadaAbiertaFila>(
+      `SELECT j.id, j.conductor_id, v.patente, j.iniciada_en,
+              c.habilitado AS conductor_habilitado
+       FROM jornadas j
+       JOIN vehiculos v   ON v.id = j.vehiculo_id
+       JOIN conductores c ON c.usuario_id = j.conductor_id
+       WHERE j.finalizada_en IS NULL AND v.trazado_id = $1
+       ORDER BY j.iniciada_en`,
+      [trazadoId],
+    );
   }
 }

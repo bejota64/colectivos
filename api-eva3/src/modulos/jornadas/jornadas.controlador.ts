@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   Ip,
+  Param,
+  ParseUUIDPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -15,6 +17,7 @@ import {
   CambiarAsientosDto,
   CambiarSentidoDto,
 } from './dto/jornadas.dto';
+import { JornadasRepresentanteServicio } from './jornadas-representante.servicio';
 import type { JornadaFila } from './jornadas.repositorio';
 import { JornadasServicio } from './jornadas.servicio';
 
@@ -82,5 +85,32 @@ export class JornadasControlador {
     @Ip() ip: string,
   ): Promise<void> {
     await this.jornadas.cerrar(sesion.id, ip);
+  }
+}
+
+/** Jornadas del trazado, vistas por su representante. */
+@Roles('representante')
+@Controller('trazados/:trazadoId/jornadas')
+export class JornadasRepresentanteControlador {
+  constructor(private readonly jornadas: JornadasRepresentanteServicio) {}
+
+  @Get()
+  listarAbiertas(
+    @UsuarioActual() sesion: UsuarioSesion,
+    @Param('trazadoId', new ParseUUIDPipe()) trazadoId: string,
+    @Ip() ip: string,
+  ) {
+    return this.jornadas.listarAbiertas(trazadoId, sesion.id, ip);
+  }
+
+  @Post(':jornadaId/cierre')
+  @HttpCode(204)
+  async cerrar(
+    @UsuarioActual() sesion: UsuarioSesion,
+    @Param('trazadoId', new ParseUUIDPipe()) trazadoId: string,
+    @Param('jornadaId', new ParseUUIDPipe()) jornadaId: string,
+    @Ip() ip: string,
+  ): Promise<void> {
+    await this.jornadas.cerrar(trazadoId, jornadaId, sesion.id, ip);
   }
 }
