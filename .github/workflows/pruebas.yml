@@ -1,4 +1,4 @@
-# Integracion continua del prototipo (Evaluacion N3).
+# Integracion continua del prototipo (Evaluaciones N3 y N4).
 # En cada push a main y en cada pull request: levanta PostgreSQL 16 y
 # MongoDB 7 con el mismo docker-compose.yml del equipo, y corre el analisis
 # estatico, la compilacion, las pruebas unitarias, las de integracion, las
@@ -30,19 +30,28 @@ jobs:
 
       # Credenciales aleatorias, solo para las bases desechables de esta
       # corrida. No hay contrasenas escritas en el repositorio.
+      # La API usa las cuentas de permisos minimos (URL_POSTGRES, URL_MONGO);
+      # las cuentas duenas (*_ADMIN) solo las usan las pruebas para limpiar.
       - name: Generar credenciales de prueba
         run: |
           PG=$(openssl rand -hex 24)
           MG=$(openssl rand -hex 24)
-          echo "::add-mask::$PG"
-          echo "::add-mask::$MG"
+          PG_API=$(openssl rand -hex 24)
+          MG_API=$(openssl rand -hex 24)
+          for SECRETO in "$PG" "$MG" "$PG_API" "$MG_API"; do echo "::add-mask::$SECRETO"; done
           {
-            echo "POSTGRES_USUARIO=colectivos_app"
+            echo "POSTGRES_USUARIO=colectivos_admin"
             echo "POSTGRES_CONTRASENA=$PG"
+            echo "POSTGRES_API_USUARIO=colectivos_api"
+            echo "POSTGRES_API_CONTRASENA=$PG_API"
             echo "MONGO_USUARIO=colectivos_admin"
             echo "MONGO_CONTRASENA=$MG"
-            echo "URL_POSTGRES=postgresql://colectivos_app:$PG@localhost:5432/colectivos"
-            echo "URL_MONGO=mongodb://colectivos_admin:$MG@localhost:27017/?authSource=admin"
+            echo "MONGO_API_USUARIO=colectivos_api"
+            echo "MONGO_API_CONTRASENA=$MG_API"
+            echo "URL_POSTGRES=postgresql://colectivos_api:$PG_API@localhost:5432/colectivos"
+            echo "URL_MONGO=mongodb://colectivos_api:$MG_API@localhost:27017/colectivos?authSource=colectivos"
+            echo "URL_POSTGRES_ADMIN=postgresql://colectivos_admin:$PG@localhost:5432/colectivos"
+            echo "URL_MONGO_ADMIN=mongodb://colectivos_admin:$MG@localhost:27017/?authSource=admin"
             echo "SECRETO_JWT=$(openssl rand -hex 32)"
             echo "NODE_ENV=test"
             echo "PUERTO=3000"
@@ -122,10 +131,21 @@ jobs:
           grep -q "OK" validador.txt
           ! grep -q "FALLA" validador.txt
 
-      - name: Dependencias de produccion sin vulnerabilidades altas
+      # Hallazgo V-03: lo que se despliega no puede tener NINGUNA
+      # vulnerabilidad conocida, de cualquier severidad.
+      - name: Dependencias de produccion sin vulnerabilidades conocidas
         if: ${{ !cancelled() }}
         working-directory: api-eva3
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --audit-level=low
+
+      # Las herramientas de desarrollo (jest, @nestjs/cli) no se despliegan,
+      # pero tampoco pueden tener vulnerabilidades moderadas o mayores. Las
+      # bajas que no tienen version corregida se registran en el informe
+      # como riesgo residual aceptado.
+      - name: Dependencias de desarrollo sin vulnerabilidades moderadas o mayores
+        if: ${{ !cancelled() }}
+        working-directory: api-eva3
+        run: npm audit --audit-level=moderate
 
       - name: Registros de las bases si algo fallo
         if: failure()
