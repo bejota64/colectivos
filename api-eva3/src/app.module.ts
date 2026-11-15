@@ -14,6 +14,7 @@ import { AutenticacionModulo } from './modulos/autenticacion/autenticacion.modul
 import { EstadisticasModulo } from './modulos/estadisticas/estadisticas.modulo';
 import { FlotaModulo } from './modulos/flota/flota.modulo';
 import { JornadasModulo } from './modulos/jornadas/jornadas.modulo';
+import { TarifasModulo } from './modulos/tarifas/tarifas.modulo';
 import { TiempoRealModulo } from './modulos/tiempo-real/tiempo-real.modulo';
 import { TrazadosModulo } from './modulos/trazados/trazados.modulo';
 import { UsuariosModulo } from './modulos/usuarios/usuarios.modulo';
@@ -44,6 +45,7 @@ import { ValoracionesModulo } from './modulos/valoraciones/valoraciones.modulo';
     // Capa 2, datos maestros
     TrazadosModulo,
     FlotaModulo,
+    TarifasModulo,
     // Capa 3, operacion
     JornadasModulo,
     TiempoRealModulo,
