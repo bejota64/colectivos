@@ -1,73 +1,90 @@
-# Sistema Integral para Colectivos — Bases de datos (MVP v1.1)
+# Sistema Integral para Colectivos
 
-## Contenido
+Prototipo funcional del proyecto de Ingeniería de Software (TI3043), INACAP sede Puente Alto.
+Equipo: Benjamín Cuevas, Martín García y Benjamín Muñoz.
 
-| Archivo | Qué es |
+El sistema ayuda a una asociación de taxis colectivos de ruta fija: el pasajero ve en el mapa los
+colectivos en servicio, sus asientos libres y en cuántos minutos llegan; el conductor abre su jornada
+y transmite su posición; el representante del trazado ve la demanda por hora y por tramo, gestiona
+tarifas, flota y reportes; el administrador revisa la auditoría.
+
+Este repositorio contiene la **API** (NestJS 11, TypeScript estricto) y sus dos bases de datos
+(**PostgreSQL 16** y **MongoDB 7**). La aplicación web (PWA) es un componente externo que consume esta API.
+
+## Documentación
+
+| Documento | Dónde |
 |---|---|
-| `docker-compose.yml` | Levanta PostgreSQL 16 y MongoDB 7 con los scripts de inicio |
-| `bd/postgres/inicio/01_esquema.sql` | 15 tablas, claves primarias y foráneas, reglas e índices |
-| `bd/postgres/inicio/02_datos_prueba.sql` | Trazado ficticio 9001 con usuarios, flota, jornadas y demanda |
-| `bd/postgres/inicio/03_cuenta_api.sql` | Cuenta de la API con permisos mínimos: sin DELETE, TRUNCATE ni cambios de estructura (Eva 4) |
-| `bd/postgres/consultas_ejemplo.sql` | 7 consultas, una por pantalla del MVP |
-| `bd/postgres/administracion/alta_trazado.sql` | CU-13: el administrador crea un trazado y su representante con la cuenta dueña |
-| `bd/postgres/pruebas_integridad.sql` | 29 pruebas: la base debe rechazar cada dato inválido |
-| `bd/postgres/rendimiento/` | Prueba de rendimiento de PostgreSQL con `pgbench`: 4 consultas y el script que las ejecuta |
-| `bd/mongo/inicio/01_colecciones.js` | 3 colecciones con validador, índices geoespaciales y de caducidad |
-| `bd/mongo/inicio/02_cuenta_api.js` | Cuenta de la API: la auditoría solo se lee y se inserta, nunca se modifica ni se borra (Eva 4) |
-| `bd/mongo/consultas_ejemplo.js` | 6 consultas, incluida una geoespacial y una de rechazo |
-| `bd/mongo/pruebas_validador.js` | 10 comprobaciones: el validador y el índice único rechazan cada aviso inválido |
-| `docs/diagrama_er.png` / `.svg` / `.dot` | Diagrama entidad-relación generado desde la base real |
-| `docs/uml/` | Diagramas UML de la Eva 4 como código: casos de uso, componentes, clases, estados y secuencia |
-| `pruebas-carga/` | 2 pruebas de carga de la API con k6 |
-| `api-autenticacion/` | Módulo de autenticación en NestJS, sus pruebas y la guía para construirlo (`GUIA.md`) |
+| Informe de la Evaluación Sumativa N°4 (pruebas, matriz de vulnerabilidades y correcciones) | [`docs/informe-eva4.pdf`](docs/informe-eva4.pdf) |
+| Diagramas UML como código: casos de uso, componentes, clases, estados y secuencia | [`docs/uml/`](docs/uml/README.md) |
+
+## Estructura
+
+| Carpeta o archivo | Qué contiene |
+|---|---|
+| `api-eva3/src/` | Código de la API, un módulo por área: autenticación, usuarios, trazados, tarifas, flota, jornadas, tiempo real, abordajes, valoraciones, estadísticas y auditoría |
+| `api-eva3/test/` | Pruebas de integración contra las bases reales: autenticación, operación, requisitos y seguridad |
+| `api-eva3/demo/flujo-completo.sh` | Recorre el flujo crítico y los ataques bloqueados con la API corriendo |
+| `bd/postgres/inicio/` | Esquema (15 tablas), datos de prueba ficticios y cuenta de la API con permisos mínimos |
+| `bd/postgres/administracion/` | CU-13: alta de un trazado con su representante, y desactivación de cuentas |
+| `bd/postgres/pruebas_integridad.sql` | 29 comprobaciones: la base rechaza cada dato inválido |
+| `bd/postgres/rendimiento/` | Prueba de rendimiento con `pgbench` |
+| `bd/mongo/inicio/` | Colecciones con validador e índices, y rol de la API (auditoría solo lectura e inserción) |
+| `bd/mongo/pruebas_validador.js` | 10 comprobaciones del validador y del índice único |
+| `.github/workflows/pruebas.yml` | Integración continua: lint, compilación, pruebas, integridad de las bases y `npm audit` |
 
 ## Cómo ejecutarlo
 
+Requisitos: Docker y Node.js 24.
+
 ```bash
-cp .env.ejemplo .env          # y cambiar las contraseñas
-docker compose up -d
-# PostgreSQL
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d colectivos -f /scripts/consultas_ejemplo.sql'
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d colectivos -f /scripts/pruebas_integridad.sql'
-# MongoDB
-docker compose exec mongo sh -c 'mongosh -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --file /scripts/consultas_ejemplo.js'
-docker compose exec mongo sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --file /scripts/pruebas_validador.js'
+cp .env.ejemplo .env                   # y cambiar las cuatro contraseñas
+docker compose up -d                   # PostgreSQL y MongoDB con los datos de prueba
+cd api-eva3
+cp .env.ejemplo .env                   # mismas contraseñas de las cuentas *_API y un SECRETO_JWT propio
+npm ci
+npm run start:dev                      # API en http://localhost:3000/api
 ```
 
 Para empezar de cero: `docker compose down -v` y volver a levantar.
 
-Cada base tiene dos cuentas: la dueña (`POSTGRES_USUARIO`, `MONGO_USUARIO`), solo para
-los scripts y para limpiar datos en las pruebas, y la de la API (`POSTGRES_API_USUARIO`,
-`MONGO_API_USUARIO`), con permisos mínimos. Las cuentas de la API se crean solo la primera
-vez que se levantan las bases: si ya existían, hay que hacer `docker compose down -v`.
+## Pruebas
 
-## Reglas que NO valida la base y debe validar el backend
+```bash
+cd api-eva3
+npm run lint          # análisis estático (oxlint)
+npm test              # pruebas unitarias
+npm run test:cov      # unitarias con cobertura
+npm run test:e2e      # integración: necesita las bases levantadas
+```
 
-1. El `representante_id` de un trazado debe ser un usuario con rol `representante`.
-2. Conductor y vehículo de una jornada deben pertenecer al mismo trazado.
-3. `asientos_disponibles` no puede superar la `capacidad` del vehículo.
-4. Solo se puede abordar una jornada abierta, y solo califica o reporta quien abordó.
-   El abordaje se acepta si el pasajero está a 200 m o menos de la última posición
-   del colectivo, y esa posición tiene menos de 60 segundos.
-5. Los identificadores guardados en MongoDB deben existir en PostgreSQL.
-6. No debe haber dos tarifas vigentes con el mismo nombre en un trazado.
-7. La demanda se suma en `demanda_por_tramo` al crear el aviso de espera, en la misma
-   petición. Cancelar o abordar marca `terminado_en`; reactivar un aviso no vuelve a sumar.
-8. Si el conductor reconecta y su jornada fue cerrada por falta de señal, la API responde
-   "jornada cerrada" y la web vuelve a la pantalla de abrir jornada.
-9. Máximo 6 abordajes por pasajero al día.
+Las mismas pruebas, más las de integridad de ambas bases y `npm audit`, corren en GitHub Actions
+en cada push a `main` y en cada pull request.
 
-Cada regla necesita una prueba unitaria en el servicio correspondiente.
+## Cuentas de las bases
 
-## Cambios de la versión 1.1
+Cada base tiene dos cuentas:
 
-- Tope de capacidad y de asientos disponibles en 4, el límite legal vigente.
-- `abordajes.distancia_al_vehiculo_m`: evidencia de cercanía al marcar "me subí".
-- `avisos_espera.terminado_en`: evita contar dos veces la demanda de un mismo pasajero.
+- **Dueña** (`POSTGRES_USUARIO`, `MONGO_USUARIO`): solo para los scripts de `bd/` y para limpiar datos en las pruebas.
+- **API** (`POSTGRES_API_USUARIO`, `MONGO_API_USUARIO`): permisos mínimos. En PostgreSQL no puede borrar
+  filas, cambiar la estructura ni asignar roles; en MongoDB la auditoría solo se puede leer e insertar.
 
+Las cuentas de la API se crean la primera vez que se levantan las bases. Si ya existían, hay que hacer
+`docker compose down -v`. El archivo `.env` nunca se sube al repositorio.
 
 ## Datos de prueba
 
-Todas las cuentas usan la contraseña `Clave.Prueba.2026`. Las personas, patentes
-y el trazado 9001 son ficticios. Las coordenadas son aproximadas y se reemplazan
-por el recorrido real de la planilla Excel de la asociación.
+Todas las personas, correos, patentes y el trazado 9001 son ficticios. Las cuentas de prueba usan la
+contraseña `Clave.Prueba.2026` (por ejemplo `pasajero1@colectivos.ejemplo.cl`,
+`conductor1@colectivos.ejemplo.cl`, `representante@colectivos.ejemplo.cl` y `admin@colectivos.ejemplo.cl`).
+
+## Reglas que valida la API y no la base
+
+1. El `representante_id` de un trazado debe ser un usuario con rol `representante`.
+2. Conductor y vehículo de una jornada deben pertenecer al mismo trazado.
+3. `asientos_disponibles` no puede superar la `capacidad` del vehículo (máximo legal: 4).
+4. Solo se aborda una jornada abierta, a 200 m o menos de una posición de menos de 60 segundos.
+5. Solo califica o reporta quien abordó, dentro de las 24 horas siguientes al viaje.
+6. No hay dos tarifas vigentes con el mismo nombre en un trazado.
+7. Una jornada con 30 minutos sin señal se cierra sola; la API responde "Jornada cerrada".
+8. Máximo 6 abordajes por pasajero al día, también con peticiones simultáneas.
