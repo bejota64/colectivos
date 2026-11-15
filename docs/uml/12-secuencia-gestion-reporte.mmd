@@ -5,35 +5,35 @@ sequenceDiagram
   autonumber
   actor RP as Representante
   participant G as Guards
-  participant S as ReportesGestionServicio
-  participant PE as PertenenciaServicio
-  participant V as ValoracionesRepositorio
-  participant A as AuditoriaServicio
+  participant S as ReportesGestion<br/>Servicio
+  participant PE as Pertenencia<br/>Servicio
+  participant V as Valoraciones<br/>Repositorio
+  participant A as Auditoria<br/>Servicio
   participant PG as PostgreSQL
-  participant MG as MongoDB (registro_eventos)
+  participant MG as MongoDB<br/>(registro_eventos)
 
-  RP->>G: PATCH /api/trazados/{t}/reportes/{r} {estado: cerrado, respuesta}
-  G->>G: sesión válida y rol representante
-  G->>S: gestionar(t, r, representanteId, cambio)
-  S->>PE: exigirTrazadoPropio(t, representanteId)
+  RP->>G: PATCH /trazados/{t}/reportes/{r}
+  G->>G: sesión y rol representante
+  G->>S: gestionar(t, r, cambio)
+  S->>PE: exigirTrazadoPropio(t)
   alt el trazado no es suyo
     PE->>A: registrar(acceso_denegado)
     A->>MG: insert
     PE-->>RP: 404 (no confirma que el trazado exista)
   else es suyo
     S->>V: buscarReporteDeTrazado(r, t)
-    V->>PG: SELECT con joins hasta el trazado (sin datos del pasajero)
-    S->>S: transición válida y respuesta presente
+    V->>PG: SELECT sin datos del pasajero
+    S->>S: valida transición y respuesta
     alt transición inválida o falta la respuesta
       S-->>RP: 422 con el motivo
     else válida
       S->>V: cambiarEstado(r, estadoAnterior, nuevo, respuesta)
-      V->>PG: UPDATE ... WHERE id = r AND estado = estadoAnterior
+      V->>PG: UPDATE … WHERE estado = anterior
       alt otra persona lo cambió entre medio
         S-->>RP: 409 Vuelve a cargarlo
       else actualizado
         S->>A: registrar(cambio_estado_reporte)
-        A->>MG: insert (la API no puede editar ni borrar eventos)
+        A->>MG: insert (sin update ni delete)
         S-->>RP: 200 reporte actualizado
       end
     end

@@ -4,35 +4,35 @@ title: Secuencia del flujo crítico "Me subí" (CU-05), con los controles de la 
 sequenceDiagram
   autonumber
   actor P as Pasajero (web)
-  participant G as Guards (límite, sesión, rol)
-  participant C as AbordajesControlador
-  participant S as AbordajesServicio
-  participant K as ConsentimientosServicio
-  participant M as MongoDB (ubicaciones)
-  participant R as AbordajesRepositorio
-  participant PG as PostgreSQL (cuenta de la API)
+  participant G as Guards<br/>(límite, sesión, rol)
+  participant C as Abordajes<br/>Controlador
+  participant S as Abordajes<br/>Servicio
+  participant K as Consentimientos<br/>Servicio
+  participant M as MongoDB<br/>(ubicaciones)
+  participant R as Abordajes<br/>Repositorio
+  participant PG as PostgreSQL<br/>(cuenta de la API)
 
-  P->>G: POST /api/abordajes {jornada_id, latitud, longitud} + token
-  G->>G: token válido, cuenta activa, rol pasajero
-  G->>C: AbordajeDto validado (whitelist)
-  C->>S: registrar(pasajeroId, datos)
-  S->>K: exigirGeolocalizacion(pasajeroId)
-  K-->>S: consentimiento vigente (Ley 21.719)
+  P->>G: POST /api/abordajes (token)
+  G->>G: sesión y rol pasajero
+  G->>C: DTO validado
+  C->>S: registrar(pasajero,<br/>datos)
+  S->>K: exigirGeolocalizacion()
+  K-->>S: consentimiento<br/>vigente (Ley 21.719)
   S->>PG: buscar jornada abierta
   S->>M: última posición del colectivo
   M-->>S: posición y su antigüedad
-  S->>S: reglas: 200 m o menos, posición de menos de 60 s, menos de 6 viajes hoy
+  S->>S: reglas: 200 m, posición < 60 s,<br/>menos de 6 viajes hoy
   alt alguna regla no se cumple
     S-->>P: 422 con el motivo (no se guarda nada)
   else se cumplen
     S->>R: registrar(pasajeroId, jornadaId, distancia, máximo 6)
     R->>PG: BEGIN
-    R->>PG: pg_advisory_xact_lock(pasajero)
-    Note over R,PG: Los "me subí" simultáneos del mismo pasajero<br/>esperan aquí y se procesan de a uno (V-04)
-    R->>PG: INSERT ... SELECT si la jornada sigue abierta y hay menos de 6 hoy
+    R->>PG: pg_advisory_xact_lock<br/>(pasajero)
+    Note over R,PG: Los «me subí» simultáneos del<br/>mismo pasajero esperan aquí<br/>y pasan de a uno (V-04)
+    R->>PG: INSERT … SELECT con el tope<br/>y la jornada abierta
     R->>PG: COMMIT
     alt se insertó
-      R-->>S: abordaje (solo la distancia, no la ubicación)
+      R-->>S: abordaje (guarda la distancia, no la ubicación)
       S-->>P: 201 Creado: habilita calificar y reportar por 24 h
     else otro "me subí" llenó el tope o la jornada se cerró
       R-->>S: null

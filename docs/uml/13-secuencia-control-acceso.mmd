@@ -4,13 +4,13 @@ title: Secuencia del control de acceso en cada petición (OWASP A01)
 sequenceDiagram
   autonumber
   actor U as Cliente
-  participant B as Lector del cuerpo (16 KB)
+  participant B as Lector del<br/>cuerpo (16 KB)
   participant T as ThrottlerGuard
   participant SG as SesionGuard
   participant RG as RolesGuard
-  participant H as Controlador y servicio
+  participant H as Controlador<br/>y servicio
   participant F as ErroresFiltro
-  participant A as AuditoriaServicio
+  participant A as Auditoria<br/>Servicio
 
   U->>B: petición HTTP
   alt cuerpo de más de 16 KB
@@ -27,7 +27,7 @@ sequenceDiagram
       else sin token, token vencido, alterado o cuenta inactiva
         SG-->>U: 401
       else token válido
-        SG->>SG: rol y estado leídos desde la base, no desde el token
+        SG->>SG: rol y estado desde la base
         SG->>RG: continúa con el usuario
       end
       alt la ruta no declara Publico, Roles ni Autenticado
@@ -39,7 +39,7 @@ sequenceDiagram
         F->>A: acceso_denegado
         F-->>U: 403
       else permitido
-        RG->>H: ejecuta (DTO validado, pertenencia en el servicio)
+        RG->>H: DTO validado y pertenencia
         H-->>U: 2xx con Cache-Control no-store (V-07)
       end
     end

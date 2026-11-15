@@ -143,7 +143,7 @@ classDiagram
     +fijarTarifa(nombre, monto)
     +crearVehiculo(datos)
     +crearConductor(datos)
-    +restablecerContrasena(conductor)
+    +restablecerContrasena(id)
     +deshabilitarConductor(conductor)
   }
   Representante "1" -- "*" Trazado : representa
@@ -234,72 +234,75 @@ Habilita calificar y reportar dentro de 24 h (V-05)."
 ```mermaid
 classDiagram
   direction TB
-  namespace guards {
-    class ThrottlerGuard {
-      <<guard global 1>>
-      +canActivate(ctx) Booleano
-    }
-    class SesionGuard {
-      <<guard global 2>>
-      +canActivate(ctx) Booleano
-      -extraerToken(peticion) Texto
-    }
-    class RolesGuard {
-      <<guard global 3>>
-      +canActivate(ctx) Booleano
-    }
-    class ErroresFiltro {
-      <<filtro global>>
-      +catch(error, host)
-    }
+  class ThrottlerGuard {
+    <<guard global 1>>
+    +canActivate(ctx) Booleano
   }
-  namespace decoradores {
-    class Publico {
-      <<decorador>>
-    }
-    class Autenticado {
-      <<decorador>>
-    }
-    class Roles {
-      <<decorador>>
-      +roles: Rol[]
-    }
+  class SesionGuard {
+    <<guard global 2>>
+    +canActivate(ctx) Booleano
+    -extraerToken(peticion) Texto
   }
-  namespace representante {
-    class TarifasServicio {
-      +fijar(trazadoId, representanteId, datos)
-      +cerrar(trazadoId, tarifaId, representanteId)
-    }
-    class FlotaGestionServicio {
-      +crearConductor(trazadoId, datos, sesion)
-      +cambiarHabilitado(trazadoId, conductorId, valor, sesion)
-    }
-    class ReportesGestionServicio {
-      +listar(trazadoId, representanteId, estado)
-      +gestionar(trazadoId, reporteId, representanteId, cambio)
-    }
+  class RolesGuard {
+    <<guard global 3>>
+    +canActivate(ctx) Booleano
+  }
+  class ErroresFiltro {
+    <<filtro global>>
+    +catch(error, host)
+  }
+  class UsuariosRepositorio {
+    +buscarPorId(id) UsuarioFila
+  }
+  class Publico {
+    <<decorador>>
+  }
+  class Autenticado {
+    <<decorador>>
+  }
+  class Roles {
+    <<decorador>>
+    +roles: Rol[]
+  }
+  class ControladoresRepresentante {
+    <<Roles representante>>
+    tarifas, flota, reportes, jornadas
+  }
+  class TarifasServicio {
+    +fijar(trazadoId, datos)
+    +cerrar(trazadoId, tarifaId)
+  }
+  class FlotaGestionServicio {
+    +crearConductor(trazadoId, datos)
+    +cambiarHabilitado(conductorId, valor)
+  }
+  class ReportesGestionServicio {
+    +listar(trazadoId, estado)
+    +gestionar(reporteId, cambio)
   }
   class PertenenciaServicio {
-    +exigirTrazadoPropio(trazadoId, representanteId, accion, ip)
+    +exigirTrazadoPropio(trazadoId, representanteId)
   }
   class AuditoriaServicio {
     +registrar(evento)
     +listar(filtro, pagina) EventoDoc[]
   }
-  class UsuariosRepositorio {
-    +buscarPorId(id) UsuarioFila
-  }
   ThrottlerGuard ..> SesionGuard : luego
-  SesionGuard ..> RolesGuard : luego
   SesionGuard ..> UsuariosRepositorio : rol y activo desde la base
+  SesionGuard ..> RolesGuard : luego
   RolesGuard ..> Publico : lee
-  RolesGuard ..> Roles : lee
   RolesGuard ..> Autenticado : lee
-  ErroresFiltro ..> AuditoriaServicio : cada 403
+  RolesGuard ..> Roles : lee
+  RolesGuard ..> ControladoresRepresentante : permite
+  RolesGuard ..> ErroresFiltro : 403
+  ControladoresRepresentante --> TarifasServicio
+  ControladoresRepresentante --> FlotaGestionServicio
+  ControladoresRepresentante --> ReportesGestionServicio
   TarifasServicio --> PertenenciaServicio
   FlotaGestionServicio --> PertenenciaServicio
   ReportesGestionServicio --> PertenenciaServicio
-  PertenenciaServicio ..> AuditoriaServicio : trazado ajeno
+  PertenenciaServicio ..> AuditoriaServicio : trazado ajeno (404)
+  ErroresFiltro ..> AuditoriaServicio : acceso_denegado
   note for RolesGuard "Deniega por defecto (V-06): una ruta
 sin Publico, Autenticado ni Roles
 responde 403. Si hay Roles, manda Roles."
@@ -370,35 +373,35 @@ stateDiagram-v2
 sequenceDiagram
   autonumber
   actor P as Pasajero (web)
-  participant G as Guards (límite, sesión, rol)
-  participant C as AbordajesControlador
-  participant S as AbordajesServicio
-  participant K as ConsentimientosServicio
-  participant M as MongoDB (ubicaciones)
-  participant R as AbordajesRepositorio
-  participant PG as PostgreSQL (cuenta de la API)
+  participant G as Guards<br/>(límite, sesión, rol)
+  participant C as Abordajes<br/>Controlador
+  participant S as Abordajes<br/>Servicio
+  participant K as Consentimientos<br/>Servicio
+  participant M as MongoDB<br/>(ubicaciones)
+  participant R as Abordajes<br/>Repositorio
+  participant PG as PostgreSQL<br/>(cuenta de la API)
 
-  P->>G: POST /api/abordajes {jornada_id, latitud, longitud} + token
-  G->>G: token válido, cuenta activa, rol pasajero
-  G->>C: AbordajeDto validado (whitelist)
-  C->>S: registrar(pasajeroId, datos)
-  S->>K: exigirGeolocalizacion(pasajeroId)
-  K-->>S: consentimiento vigente (Ley 21.719)
+  P->>G: POST /api/abordajes (token)
+  G->>G: sesión y rol pasajero
+  G->>C: DTO validado
+  C->>S: registrar(pasajero,<br/>datos)
+  S->>K: exigirGeolocalizacion()
+  K-->>S: consentimiento<br/>vigente (Ley 21.719)
   S->>PG: buscar jornada abierta
   S->>M: última posición del colectivo
   M-->>S: posición y su antigüedad
-  S->>S: reglas: 200 m o menos, posición de menos de 60 s, menos de 6 viajes hoy
+  S->>S: reglas: 200 m, posición < 60 s,<br/>menos de 6 viajes hoy
   alt alguna regla no se cumple
     S-->>P: 422 con el motivo (no se guarda nada)
   else se cumplen
     S->>R: registrar(pasajeroId, jornadaId, distancia, máximo 6)
     R->>PG: BEGIN
-    R->>PG: pg_advisory_xact_lock(pasajero)
-    Note over R,PG: Los "me subí" simultáneos del mismo pasajero<br/>esperan aquí y se procesan de a uno (V-04)
-    R->>PG: INSERT ... SELECT si la jornada sigue abierta y hay menos de 6 hoy
+    R->>PG: pg_advisory_xact_lock<br/>(pasajero)
+    Note over R,PG: Los «me subí» simultáneos del<br/>mismo pasajero esperan aquí<br/>y pasan de a uno (V-04)
+    R->>PG: INSERT … SELECT con el tope<br/>y la jornada abierta
     R->>PG: COMMIT
     alt se insertó
-      R-->>S: abordaje (solo la distancia, no la ubicación)
+      R-->>S: abordaje (guarda la distancia, no la ubicación)
       S-->>P: 201 Creado: habilita calificar y reportar por 24 h
     else otro "me subí" llenó el tope o la jornada se cerró
       R-->>S: null
@@ -414,35 +417,35 @@ sequenceDiagram
   autonumber
   actor RP as Representante
   participant G as Guards
-  participant S as ReportesGestionServicio
-  participant PE as PertenenciaServicio
-  participant V as ValoracionesRepositorio
-  participant A as AuditoriaServicio
+  participant S as ReportesGestion<br/>Servicio
+  participant PE as Pertenencia<br/>Servicio
+  participant V as Valoraciones<br/>Repositorio
+  participant A as Auditoria<br/>Servicio
   participant PG as PostgreSQL
-  participant MG as MongoDB (registro_eventos)
+  participant MG as MongoDB<br/>(registro_eventos)
 
-  RP->>G: PATCH /api/trazados/{t}/reportes/{r} {estado: cerrado, respuesta}
-  G->>G: sesión válida y rol representante
-  G->>S: gestionar(t, r, representanteId, cambio)
-  S->>PE: exigirTrazadoPropio(t, representanteId)
+  RP->>G: PATCH /trazados/{t}/reportes/{r}
+  G->>G: sesión y rol representante
+  G->>S: gestionar(t, r, cambio)
+  S->>PE: exigirTrazadoPropio(t)
   alt el trazado no es suyo
     PE->>A: registrar(acceso_denegado)
     A->>MG: insert
     PE-->>RP: 404 (no confirma que el trazado exista)
   else es suyo
     S->>V: buscarReporteDeTrazado(r, t)
-    V->>PG: SELECT con joins hasta el trazado (sin datos del pasajero)
-    S->>S: transición válida y respuesta presente
+    V->>PG: SELECT sin datos del pasajero
+    S->>S: valida transición y respuesta
     alt transición inválida o falta la respuesta
       S-->>RP: 422 con el motivo
     else válida
       S->>V: cambiarEstado(r, estadoAnterior, nuevo, respuesta)
-      V->>PG: UPDATE ... WHERE id = r AND estado = estadoAnterior
+      V->>PG: UPDATE … WHERE estado = anterior
       alt otra persona lo cambió entre medio
         S-->>RP: 409 Vuelve a cargarlo
       else actualizado
         S->>A: registrar(cambio_estado_reporte)
-        A->>MG: insert (la API no puede editar ni borrar eventos)
+        A->>MG: insert (sin update ni delete)
         S-->>RP: 200 reporte actualizado
       end
     end
@@ -455,13 +458,13 @@ sequenceDiagram
 sequenceDiagram
   autonumber
   actor U as Cliente
-  participant B as Lector del cuerpo (16 KB)
+  participant B as Lector del<br/>cuerpo (16 KB)
   participant T as ThrottlerGuard
   participant SG as SesionGuard
   participant RG as RolesGuard
-  participant H as Controlador y servicio
+  participant H as Controlador<br/>y servicio
   participant F as ErroresFiltro
-  participant A as AuditoriaServicio
+  participant A as Auditoria<br/>Servicio
 
   U->>B: petición HTTP
   alt cuerpo de más de 16 KB
@@ -478,7 +481,7 @@ sequenceDiagram
       else sin token, token vencido, alterado o cuenta inactiva
         SG-->>U: 401
       else token válido
-        SG->>SG: rol y estado leídos desde la base, no desde el token
+        SG->>SG: rol y estado desde la base
         SG->>RG: continúa con el usuario
       end
       alt la ruta no declara Publico, Roles ni Autenticado
@@ -490,7 +493,7 @@ sequenceDiagram
         F->>A: acceso_denegado
         F-->>U: 403
       else permitido
-        RG->>H: ejecuta (DTO validado, pertenencia en el servicio)
+        RG->>H: DTO validado y pertenencia
         H-->>U: 2xx con Cache-Control no-store (V-07)
       end
     end
