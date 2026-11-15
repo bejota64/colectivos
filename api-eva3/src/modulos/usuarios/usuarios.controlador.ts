@@ -1,15 +1,18 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   NotFoundException,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { Autenticado } from '../../comun/decoradores/autenticado.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
 import { ConsentimientosRepositorio } from './consentimientos.repositorio';
+import { PerfilDto } from './dto/perfil.dto';
 import { UsuariosRepositorio } from './usuarios.repositorio';
 
 /** Todo lo de este controlador actua sobre la cuenta propia: sirve a cualquier perfil con sesion. */
@@ -35,6 +38,19 @@ export class UsuariosControlador {
       correo_electronico: usuario.correo_electronico,
       rol: usuario.rol,
     };
+  }
+
+  /** Editar el perfil propio: nombre y telefono (matriz de permisos: todos los perfiles). */
+  @Patch('yo')
+  async actualizarPerfil(@UsuarioActual() sesion: UsuarioSesion, @Body() datos: PerfilDto) {
+    const perfil = await this.usuarios.actualizarPerfil(sesion.id, {
+      nombreCompleto: datos.nombre_completo,
+      telefono: datos.telefono,
+    });
+    if (!perfil) {
+      throw new NotFoundException();
+    }
+    return perfil;
   }
 
   /** Acepta el uso de la ubicacion. La ruta siempre actua sobre la cuenta propia: no recibe ids. */
