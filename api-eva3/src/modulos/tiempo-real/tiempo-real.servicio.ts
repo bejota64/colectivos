@@ -36,9 +36,16 @@ export interface ColectivoVisible {
   latitud: number;
   longitud: number;
   actualizado_hace_s: number;
+  /** true si la ultima señal tiene mas de 30 s: la web lo muestra atenuado (CU-03). */
+  atenuado: boolean;
   /** null si no se envio la ubicacion del pasajero o si el colectivo ya paso. */
   minutos_estimados: number | null;
 }
+
+/** CU-03: con mas de 30 s sin señal el colectivo se ve atenuado... */
+export const SENAL_ATENUADA_S = 30;
+/** ...y con mas de 2 minutos se oculta: mostrar un auto "fantasma" seria peor. */
+export const SENAL_OCULTA_S = 120;
 
 /**
  * Mapa en vivo. En el sistema final las posiciones se empujan por
@@ -169,8 +176,7 @@ export class TiempoRealServicio {
       const ultima = ultimas.get(colectivo.jornada_id);
       if (!ultima) continue;
       const edad = (ahora.getTime() - ultima.registrada_en.getTime()) / 1000;
-      // Sin señal reciente no se muestra: mostrar un auto "fantasma" seria peor.
-      if (edad > VIGENCIA_POSICION_S) continue;
+      if (edad > SENAL_OCULTA_S) continue;
 
       const porRecorrer = proyeccionPasajero
         ? proyeccionPasajero.distanciaRutaM - ultima.distancia_ruta_m
@@ -181,6 +187,7 @@ export class TiempoRealServicio {
         latitud: posicion.latitud,
         longitud: posicion.longitud,
         actualizado_hace_s: Math.round(edad),
+        atenuado: edad > SENAL_ATENUADA_S,
         minutos_estimados:
           porRecorrer !== null && porRecorrer >= 0
             ? minutosEstimados(porRecorrer)
