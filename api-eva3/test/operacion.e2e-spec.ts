@@ -4,8 +4,8 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { BaseDatosServicio } from '../src/comun/base-datos/base-datos.servicio';
-import { MongoServicio } from '../src/comun/mongo/mongo.servicio';
 import { configurarAplicacion } from '../src/configurar-aplicacion';
+import { type ConexionesAdmin, conectarComoAdmin } from './datos/admin';
 
 /**
  * Pruebas de integracion del flujo critico (Evaluacion 3): levantan la API
@@ -39,7 +39,7 @@ describe('Operacion: jornada, mapa, "me subi", calificacion y panel', () => {
   let app: INestApplication;
   let servidor: Parameters<typeof request>[0];
   let baseDatos: BaseDatosServicio;
-  let mongo: MongoServicio;
+  let admin: ConexionesAdmin;
   let tokenConductor: string;
   let tokenPasajero: string;
   let tokenRepresentante: string;
@@ -59,24 +59,26 @@ describe('Operacion: jornada, mapa, "me subi", calificacion y panel', () => {
     await app.init();
     servidor = app.getHttpServer() as Parameters<typeof request>[0];
     baseDatos = app.get(BaseDatosServicio);
-    mongo = app.get(MongoServicio);
+    admin = await conectarComoAdmin(app);
     tokenConductor = await tokenDe(CONDUCTOR);
     tokenPasajero = await tokenDe(PASAJERO);
     tokenRepresentante = await tokenDe(REPRESENTANTE);
   });
 
   afterAll(async () => {
-    // Deja la base como estaba: borra lo creado por estas pruebas.
+    // Deja la base como estaba: borra lo creado por estas pruebas, con la
+    // conexion de administracion (la cuenta de la API no tiene permiso de DELETE).
     if (abordajesCreados.length > 0) {
-      await baseDatos.consultar(`DELETE FROM calificaciones WHERE abordaje_id = ANY($1::uuid[])`, [abordajesCreados]);
-      await baseDatos.consultar(`DELETE FROM abordajes WHERE id = ANY($1::uuid[])`, [abordajesCreados]);
+      await admin.pg.query(`DELETE FROM calificaciones WHERE abordaje_id = ANY($1::uuid[])`, [abordajesCreados]);
+      await admin.pg.query(`DELETE FROM abordajes WHERE id = ANY($1::uuid[])`, [abordajesCreados]);
     }
-    const nuevos = await baseDatos.consultar<{ id: string }>(
+    const { rows: nuevos } = await admin.pg.query<{ id: string }>(
       `SELECT id FROM usuarios WHERE correo_electronico LIKE $1`,
       [`${PREFIJO}%`],
     );
-    await mongo.coleccion('avisos_espera').deleteMany({ pasajero_id: { $in: nuevos.map((u) => u.id) } });
-    await baseDatos.consultar(`DELETE FROM usuarios WHERE correo_electronico LIKE $1`, [`${PREFIJO}%`]);
+    await admin.mongo.collection('avisos_espera').deleteMany({ pasajero_id: { $in: nuevos.map((u) => u.id) } });
+    await admin.pg.query(`DELETE FROM usuarios WHERE correo_electronico LIKE $1`, [`${PREFIJO}%`]);
+    await admin.cerrar();
     await app.close();
   });
 

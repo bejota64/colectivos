@@ -87,20 +87,26 @@ jobs:
         run: npm run lint
 
       - name: Compilar (TypeScript estricto)
+        id: compilar
         working-directory: api-eva3
         run: npm run build
 
+      # Las etapas de prueba corren aunque una anterior falle (siempre que el
+      # codigo compile), para ver en una sola corrida todo lo que falla.
       - name: Pruebas unitarias con cobertura
+        if: ${{ !cancelled() && steps.compilar.outcome == 'success' }}
         working-directory: api-eva3
         run: npm run test:cov -- --ci
 
       - name: Pruebas de integracion contra las bases reales
+        if: ${{ !cancelled() && steps.compilar.outcome == 'success' }}
         working-directory: api-eva3
         run: npm run test:e2e -- --ci
 
       # Las bases deben rechazar solas los datos invalidos, aunque la API
       # falle. Cada script imprime una linea OK o FALLA por comprobacion.
       - name: Integridad de PostgreSQL (restricciones CHECK, UNIQUE y FK)
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           docker compose exec -T postgres psql -U "$POSTGRES_USUARIO" -d colectivos \
@@ -109,6 +115,7 @@ jobs:
           ! grep -q "FALLA" integridad.txt
 
       - name: Validadores de MongoDB ($jsonSchema e indice unico)
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           docker compose exec -T mongo sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --file /scripts/pruebas_validador.js' | tee validador.txt
@@ -116,6 +123,7 @@ jobs:
           ! grep -q "FALLA" validador.txt
 
       - name: Dependencias de produccion sin vulnerabilidades altas
+        if: ${{ !cancelled() }}
         working-directory: api-eva3
         run: npm audit --omit=dev --audit-level=high
 

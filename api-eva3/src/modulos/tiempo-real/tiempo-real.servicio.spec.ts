@@ -136,7 +136,7 @@ describe('TiempoRealServicio', () => {
       guardadas = [
         ubicacion(PUNTO_2, 483, 4, 'j-cerca'),
         ubicacion(PUNTO_5, 1959, 4, 'j-paso'),
-        ubicacion(PUNTO_1, 0, 120, 'j-sin-senal'),
+        ubicacion(PUNTO_1, 0, 150, 'j-sin-senal'),
       ];
     });
 
@@ -169,6 +169,39 @@ describe('TiempoRealServicio', () => {
       expect(visibles[0].patente).toBe('ZZZZ01');
       expect(visibles[0].minutos_estimados).toBe(3);
       expect(visibles[1].minutos_estimados).toBeNull();
+    });
+
+    describe('CU-03: antiguedad de la señal', () => {
+      const atrasado = () => {
+        enServicio.push({
+          jornada_id: 'j-atrasado',
+          patente: 'ZZZZ04',
+          vehiculo: 'Kia Rio',
+          asientos_disponibles: 3,
+          nota_promedio: null,
+        });
+        guardadas.push(ubicacion(PUNTO_1, 0, 90, 'j-atrasado'));
+      };
+
+      it('con señal de hasta 30 s se muestra normal', async () => {
+        const visibles = await servicio.listarColectivos(IDS.pasajero1, IDS.sentidoIda, null, AHORA);
+        const cerca = visibles.find((v) => v.patente === 'ZZZZ01');
+        expect(cerca).toMatchObject({ actualizado_hace_s: 4, atenuado: false });
+      });
+
+      it('entre 30 s y 2 min se sigue mostrando, atenuado', async () => {
+        atrasado();
+        const visibles = await servicio.listarColectivos(IDS.pasajero1, IDS.sentidoIda, null, AHORA);
+        expect(visibles.find((v) => v.patente === 'ZZZZ04')).toMatchObject({
+          actualizado_hace_s: 90,
+          atenuado: true,
+        });
+      });
+
+      it('con mas de 2 min sin señal se oculta', async () => {
+        const visibles = await servicio.listarColectivos(IDS.pasajero1, IDS.sentidoIda, null, AHORA);
+        expect(visibles.map((v) => v.patente)).not.toContain('ZZ9903');
+      });
     });
   });
 });

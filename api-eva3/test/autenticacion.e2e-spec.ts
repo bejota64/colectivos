@@ -3,8 +3,8 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { BaseDatosServicio } from '../src/comun/base-datos/base-datos.servicio';
 import { configurarAplicacion } from '../src/configurar-aplicacion';
+import { type ConexionesAdmin, conectarComoAdmin } from './datos/admin';
 
 /**
  * Pruebas de integracion: levantan la API completa y la llaman por HTTP,
@@ -36,7 +36,7 @@ interface CuerpoError {
 
 describe('Autenticacion y control de acceso', () => {
   let app: INestApplication;
-  let baseDatos: BaseDatosServicio;
+  let admin: ConexionesAdmin;
   let servidor: Parameters<typeof request>[0];
 
   const tokenDe = async (correo: string): Promise<string> => {
@@ -67,19 +67,21 @@ describe('Autenticacion y control de acceso', () => {
     configurarAplicacion(app as NestExpressApplication);
     await app.init();
     servidor = app.getHttpServer() as Parameters<typeof request>[0];
-    baseDatos = app.get(BaseDatosServicio);
+    admin = await conectarComoAdmin(app);
   });
 
   afterAll(async () => {
     // Borra solo las cuentas creadas por estas pruebas; sus tokens y consentimientos caen en cascada.
-    await baseDatos.consultar(
+    // Se usa la conexion de administracion: la cuenta de la API no tiene permiso de DELETE.
+    await admin.pg.query(
       `DELETE FROM usuarios WHERE correo_electronico LIKE $1`,
       [`${PREFIJO}%`],
     );
-    await baseDatos.consultar(
+    await admin.pg.query(
       `DELETE FROM tokens_refresco WHERE usuario_id IN
          (SELECT id FROM usuarios WHERE correo_electronico LIKE '%@colectivos.ejemplo.cl')`,
     );
+    await admin.cerrar();
     await app.close();
   });
 
