@@ -17,6 +17,26 @@ export interface ResumenConductorFila {
   felicitaciones: number;
 }
 
+export interface DemandaExportFila {
+  fecha: string;
+  sentido: string;
+  numero_tramo: number;
+  hora: number;
+  avisos: number;
+  personas: number;
+}
+
+export interface ReporteExportFila {
+  fecha: string;
+  patente: string;
+  conductor: string;
+  tipo: string;
+  categoria: string;
+  estado: string;
+  descripcion: string;
+  respuesta: string | null;
+}
+
 /** Lectura para el panel del representante. Todo agregado: ninguna fila identifica a un pasajero. */
 @Injectable()
 export class EstadisticasRepositorio {
@@ -53,6 +73,45 @@ export class EstadisticasRepositorio {
        GROUP BY u.nombre_completo
        ORDER BY u.nombre_completo`,
       [trazadoId],
+    );
+  }
+
+  /** Hoy en Chile, AAAA-MM-DD. */
+  async hoy(): Promise<string> {
+    const [fila] = await this.baseDatos.consultar<{ hoy: string }>(
+      `SELECT to_char((now() AT TIME ZONE 'America/Santiago')::date, 'YYYY-MM-DD') AS hoy`,
+    );
+    return fila.hoy;
+  }
+
+  /** Demanda de un rango de dias, para el CSV (CU-10). */
+  demandaEntre(trazadoId: string, desde: string, hasta: string): Promise<DemandaExportFila[]> {
+    return this.baseDatos.consultar<DemandaExportFila>(
+      `SELECT to_char(d.fecha, 'YYYY-MM-DD') AS fecha, s.sentido, d.numero_tramo,
+              d.hora, d.avisos, d.personas
+       FROM demanda_por_tramo d
+       JOIN sentidos s ON s.id = d.sentido_id
+       WHERE s.trazado_id = $1 AND d.fecha BETWEEN $2::date AND $3::date
+       ORDER BY d.fecha, s.sentido, d.hora, d.numero_tramo`,
+      [trazadoId, desde, hasta],
+    );
+  }
+
+  /** Reportes de un rango de dias, para el CSV. Sin ningun dato del pasajero. */
+  reportesEntre(trazadoId: string, desde: string, hasta: string): Promise<ReporteExportFila[]> {
+    return this.baseDatos.consultar<ReporteExportFila>(
+      `SELECT to_char(r.creado_en AT TIME ZONE 'America/Santiago', 'YYYY-MM-DD HH24:MI') AS fecha,
+              v.patente, uc.nombre_completo AS conductor, r.tipo, r.categoria, r.estado,
+              r.descripcion, r.respuesta
+       FROM reportes r
+       JOIN abordajes a  ON a.id = r.abordaje_id
+       JOIN jornadas j   ON j.id = a.jornada_id
+       JOIN vehiculos v  ON v.id = j.vehiculo_id
+       JOIN usuarios uc  ON uc.id = j.conductor_id
+       WHERE v.trazado_id = $1
+         AND (r.creado_en AT TIME ZONE 'America/Santiago')::date BETWEEN $2::date AND $3::date
+       ORDER BY r.creado_en`,
+      [trazadoId, desde, hasta],
     );
   }
 }

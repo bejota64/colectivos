@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { crearAuditoriaFalsa, IDS } from '../../../test/datos/recorrido-9001';
 import type { AuditoriaServicio } from '../auditoria/auditoria.servicio';
+import { PertenenciaServicio } from '../trazados/pertenencia.servicio';
 import type { TrazadosRepositorio } from '../trazados/trazados.repositorio';
 import type { EstadisticasRepositorio } from './estadisticas.repositorio';
 import { EstadisticasServicio } from './estadisticas.servicio';
@@ -24,11 +25,13 @@ describe('EstadisticasServicio: rol + pertenencia', () => {
           return Promise.resolve([]);
         },
       } as unknown as EstadisticasRepositorio,
-      {
-        esDeRepresentante: (trazadoId: string, representanteId: string) =>
-          Promise.resolve(trazadoId === IDS.trazado && representanteId === IDS.representante),
-      } as unknown as TrazadosRepositorio,
-      auditoria as unknown as AuditoriaServicio,
+      new PertenenciaServicio(
+        {
+          esDeRepresentante: (trazadoId: string, representanteId: string) =>
+            Promise.resolve(trazadoId === IDS.trazado && representanteId === IDS.representante),
+        } as unknown as TrazadosRepositorio,
+        auditoria as unknown as AuditoriaServicio,
+      ),
     );
   });
 
