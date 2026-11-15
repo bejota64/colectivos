@@ -30,6 +30,15 @@ class RutasDePrueba {
   sinDeclarar() {}
 }
 
+/** Clase abierta a cualquier perfil, con una ruta solo para pasajeros. */
+@ParaCualquierPerfil()
+class RutasMixtas {
+  paraTodos() {}
+
+  @Roles('pasajero')
+  soloPasajero() {}
+}
+
 describe('RolesGuard', () => {
   const guard = new RolesGuard(new Reflector());
 
@@ -66,5 +75,17 @@ describe('RolesGuard', () => {
     expect(() => guard.canActivate(contexto('sinDeclarar', 'administrador'))).toThrow(
       ForbiddenException,
     );
+  });
+
+  it('si la clase es para cualquier perfil pero la ruta declara @Roles, manda @Roles', () => {
+    const contextoMixto = (metodo: keyof RutasMixtas, rol: Rol) =>
+      ({
+        getHandler: () => RutasMixtas.prototype[metodo],
+        getClass: () => RutasMixtas,
+        switchToHttp: () => ({ getRequest: () => ({ usuario: { id: 'u-1', rol } }) }),
+      }) as unknown as ExecutionContext;
+    expect(guard.canActivate(contextoMixto('paraTodos', 'conductor'))).toBe(true);
+    expect(() => guard.canActivate(contextoMixto('soloPasajero', 'conductor'))).toThrow(ForbiddenException);
+    expect(guard.canActivate(contextoMixto('soloPasajero', 'pasajero'))).toBe(true);
   });
 });
