@@ -1,0 +1,14 @@
+---
+title: Estados del reporte (CU-06 y CU-11)
+---
+stateDiagram-v2
+  state "En revisión" as EnRevision
+  [*] --> Pendiente : el pasajero reporta (hasta 24 h)
+  Pendiente --> EnRevision : revisar
+  Pendiente --> Cerrado : responder y cerrar
+  EnRevision --> Cerrado : responder y cerrar
+  Cerrado --> [*]
+  note right of Cerrado
+    Cerrar exige respuesta y guarda
+    quién y cuándo. Es un estado final.
+  end note

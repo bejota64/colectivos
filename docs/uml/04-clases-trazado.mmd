@@ -1,0 +1,65 @@
+---
+title: Clases (2/4) - Trazado, tarifas y flota
+---
+classDiagram
+  direction TB
+  class Trazado {
+    -id: UUID
+    -codigo: Texto
+    -nombre: Texto
+    -comuna: Texto
+    -activo: Booleano
+  }
+  class Sentido {
+    -sentido: ida | vuelta
+    -origen: Texto
+    -destino: Texto
+  }
+  class PuntoRuta {
+    -orden: Entero
+    -latitud: Decimal
+    -longitud: Decimal
+    -distanciaAcumuladaM: Entero
+  }
+  class PuntoReferencia {
+    -nombre: Texto
+    -tipo: terminal | combinacion | otro
+  }
+  class Tarifa {
+    -nombre: Texto
+    -monto: Entero 1000..3000
+    -horaInicio: Hora [0..1]
+    -horaFin: Hora [0..1]
+    -vigenteDesde: FechaHora
+    -vigenteHasta: FechaHora [0..1]
+    +reemplazar(monto) Tarifa
+    +cerrar()
+  }
+  class Vehiculo {
+    -patente: AA1234 | BBBB12
+    -marca: Texto
+    -modelo: Texto
+    -anio: Entero
+    -capacidad: Entero 1..4
+    -activo: Booleano
+  }
+  class Conductor {
+    -habilitado: Booleano
+  }
+  class Representante {
+    <<rol de Usuario>>
+    +fijarTarifa(nombre, monto)
+    +crearVehiculo(datos)
+    +crearConductor(datos)
+    +restablecerContrasena(conductor)
+    +deshabilitarConductor(conductor)
+  }
+  Representante "1" -- "*" Trazado : representa
+  Trazado "1" *-- "2" Sentido
+  Sentido "1" *-- "2..*" PuntoRuta
+  Trazado "1" *-- "*" PuntoReferencia
+  Trazado "1" *-- "*" Tarifa : historial
+  Trazado "1" o-- "*" Vehiculo
+  Trazado "1" -- "*" Conductor : habilita
+  note for Tarifa "Cambiar el precio cierra la vigente y crea otra:
+nunca hay dos vigentes con el mismo nombre."

@@ -1,0 +1,70 @@
+---
+title: Clases (3/4) - Operación diaria y calidad del servicio
+---
+classDiagram
+  direction TB
+  class Jornada {
+    -iniciadaEn: FechaHora
+    -finalizadaEn: FechaHora [0..1]
+    -asientosDisponibles: Entero 0..4
+    +ajustarAsientos(n)
+    +cambiarSentido(sentido)
+    +cerrar(motivo)
+  }
+  class UbicacionVehiculo {
+    <<documento MongoDB>>
+    -ubicacion: Punto GeoJSON
+    -distanciaRutaM: Entero
+    -velocidadKmh: Decimal
+    -registradaEn: FechaHora
+  }
+  class AvisoEspera {
+    <<documento MongoDB>>
+    -ubicacion: Punto GeoJSON
+    -distanciaRutaM: Entero
+    -personas: Entero 1..4
+    -expiraEn: FechaHora
+    -terminadoEn: FechaHora [0..1]
+  }
+  class Abordaje {
+    -distanciaAlVehiculoM: Entero 0..500
+    -abordadoEn: FechaHora
+  }
+  class Calificacion {
+    -estrellas: Entero 1..5
+    -creadaEn: FechaHora
+  }
+  class Reporte {
+    -tipo: queja | felicitacion
+    -categoria: Categoria
+    -descripcion: Texto 10..1000
+    -estado: EstadoReporte
+    -respuesta: Texto [0..1]
+    -cerradoEn: FechaHora [0..1]
+    +gestionar(estado, respuesta)
+  }
+  class DemandaPorTramo {
+    -numeroTramo: Entero
+    -fecha: Fecha
+    -hora: Entero 0..23
+    -avisos: Entero
+    -personas: Entero
+  }
+  class Conductor
+  class Vehiculo
+  class Pasajero
+  class Sentido
+  Conductor "1" -- "*" Jornada : maneja
+  Vehiculo "1" -- "*" Jornada : se hace en
+  Sentido "0..1" -- "*" Jornada : sentido actual
+  Jornada "1" *-- "*" UbicacionVehiculo : cada 5 s
+  Jornada "1" -- "*" Abordaje : transporta
+  Pasajero "1" -- "*" Abordaje : realiza
+  Pasajero "1" -- "0..1" AvisoEspera : avisa
+  Abordaje "1" *-- "0..1" Calificacion
+  Abordaje "1" *-- "0..1" Reporte
+  Sentido "1" -- "*" DemandaPorTramo
+  AvisoEspera ..> DemandaPorTramo : suma una vez
+  note for Abordaje "Solo a 200 m o menos de una posición de menos de 60 s,
+máximo 6 al día (con candado por pasajero, V-04).
+Habilita calificar y reportar dentro de 24 h (V-05)."

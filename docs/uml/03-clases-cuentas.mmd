@@ -1,0 +1,65 @@
+---
+title: Clases (1/4) - Cuentas, acceso y auditoría
+---
+classDiagram
+  direction LR
+  class Rol {
+    <<enumeration>>
+    pasajero
+    conductor
+    representante
+    administrador
+  }
+  class Usuario {
+    -id: UUID
+    -nombreCompleto: Texto
+    -correoElectronico: Texto
+    -contrasenaHash: Texto
+    -rol: Rol
+    -telefono: Texto [0..1]
+    -activo: Booleano
+    -eliminadoEn: FechaHora [0..1]
+    +iniciarSesion(correo, contrasena) Sesion
+    +renovarSesion(cookie) Sesion
+    +cerrarSesion()
+    +actualizarPerfil(nombre, telefono)
+    +eliminarCuenta(contrasena)
+  }
+  class Consentimiento {
+    -tipo: terminos | privacidad | geolocalizacion
+    -versionPolitica: Texto
+    -aceptadoEn: FechaHora
+    -revocadoEn: FechaHora [0..1]
+  }
+  class TokenRefresco {
+    -tokenHash: Texto
+    -expiraEn: FechaHora
+    -revocadoEn: FechaHora [0..1]
+    +rotar() TokenRefresco
+    +revocar()
+  }
+  class Conductor {
+    -habilitado: Booleano
+    +abrirJornada(vehiculo, sentido)
+    +enviarPosicion(punto)
+    +ajustarAsientos(n)
+  }
+  class EventoAuditoria {
+    <<documento MongoDB>>
+    -tipo: TipoEvento
+    -usuarioId: UUID [0..1]
+    -direccionIp: Texto
+    -detalle: Objeto
+    -ocurridoEn: FechaHora
+  }
+  Usuario ..> Rol : usa
+  Usuario "1" *-- "1..*" Consentimiento : acepta
+  Usuario "1" *-- "*" TokenRefresco : sesiones
+  Usuario "1" -- "0..1" Conductor : es
+  Usuario "0..1" <.. "*" EventoAuditoria : registra
+  note for EventoAuditoria "Solo se lee e inserta: la cuenta de la API
+no puede modificarlo ni borrarlo (V-02).
+Caduca a los 90 días."
+  note for Usuario "El rol nunca viene del formulario.
+Eliminar la cuenta la anonimiza
+(Ley 21.719)."

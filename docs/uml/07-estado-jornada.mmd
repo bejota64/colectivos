@@ -1,0 +1,16 @@
+---
+title: Estados de la jornada
+---
+stateDiagram-v2
+  [*] --> Abierta : abrir (conductor habilitado y vehículo libre de su trazado)
+  Abierta --> Abierta : posición cada 5 s / asientos solo detenido
+  Abierta --> Cerrada : cerrar
+  Cerrada --> [*]
+  note right of Cerrada
+    Se cierra por cuatro causas:
+    1. La termina el conductor.
+    2. 30 min sin señal (cierre automático, CU-08).
+    3. La cierra el representante del trazado.
+    4. El conductor fue deshabilitado.
+    Después la API responde "Jornada cerrada".
+  end note

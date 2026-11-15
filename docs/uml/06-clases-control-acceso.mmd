@@ -1,0 +1,76 @@
+---
+title: Clases (4/4) - Diseño del control de acceso
+---
+classDiagram
+  direction TB
+  namespace guards {
+    class ThrottlerGuard {
+      <<guard global 1>>
+      +canActivate(ctx) Booleano
+    }
+    class SesionGuard {
+      <<guard global 2>>
+      +canActivate(ctx) Booleano
+      -extraerToken(peticion) Texto
+    }
+    class RolesGuard {
+      <<guard global 3>>
+      +canActivate(ctx) Booleano
+    }
+    class ErroresFiltro {
+      <<filtro global>>
+      +catch(error, host)
+    }
+  }
+  namespace decoradores {
+    class Publico {
+      <<decorador>>
+    }
+    class Autenticado {
+      <<decorador>>
+    }
+    class Roles {
+      <<decorador>>
+      +roles: Rol[]
+    }
+  }
+  namespace representante {
+    class TarifasServicio {
+      +fijar(trazadoId, representanteId, datos)
+      +cerrar(trazadoId, tarifaId, representanteId)
+    }
+    class FlotaGestionServicio {
+      +crearConductor(trazadoId, datos, sesion)
+      +cambiarHabilitado(trazadoId, conductorId, valor, sesion)
+    }
+    class ReportesGestionServicio {
+      +listar(trazadoId, representanteId, estado)
+      +gestionar(trazadoId, reporteId, representanteId, cambio)
+    }
+  }
+  class PertenenciaServicio {
+    +exigirTrazadoPropio(trazadoId, representanteId, accion, ip)
+  }
+  class AuditoriaServicio {
+    +registrar(evento)
+    +listar(filtro, pagina) EventoDoc[]
+  }
+  class UsuariosRepositorio {
+    +buscarPorId(id) UsuarioFila
+  }
+  ThrottlerGuard ..> SesionGuard : luego
+  SesionGuard ..> RolesGuard : luego
+  SesionGuard ..> UsuariosRepositorio : rol y activo desde la base
+  RolesGuard ..> Publico : lee
+  RolesGuard ..> Roles : lee
+  RolesGuard ..> Autenticado : lee
+  ErroresFiltro ..> AuditoriaServicio : cada 403
+  TarifasServicio --> PertenenciaServicio
+  FlotaGestionServicio --> PertenenciaServicio
+  ReportesGestionServicio --> PertenenciaServicio
+  PertenenciaServicio ..> AuditoriaServicio : trazado ajeno
+  note for RolesGuard "Deniega por defecto (V-06): una ruta
+sin Publico, Autenticado ni Roles
+responde 403. Si hay Roles, manda Roles."
+  note for PertenenciaServicio "Rol + pertenencia: un trazado ajeno
+responde 404 y queda en la auditoría."
