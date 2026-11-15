@@ -60,4 +60,21 @@ describe('ErroresFiltro', () => {
     expect(enviado.estado).toBe(403);
     expect(auditoria.eventos[0].tipo).toBe('acceso_denegado');
   });
+
+  it('V-08: un cuerpo demasiado grande responde 413 y no 500', () => {
+    // Asi llega el error del lector del cuerpo (body-parser).
+    const demasiadoGrande = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      expose: true,
+      type: 'entity.too.large',
+    });
+    filtro.catch(demasiadoGrande, host());
+    expect(enviado.estado).toBe(413);
+    expect(JSON.stringify(enviado.cuerpo)).not.toContain('entity');
+  });
+
+  it('un error con status pero sin expose sigue siendo un 500 generico', () => {
+    filtro.catch(Object.assign(new Error('interno'), { status: 404 }), host());
+    expect(enviado.estado).toBe(500);
+  });
 });

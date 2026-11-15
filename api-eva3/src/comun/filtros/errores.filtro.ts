@@ -12,6 +12,27 @@ import type { UsuarioSesion } from '../tipos';
 
 const MENSAJE_INTERNO = 'Ocurrio un error interno. Intenta de nuevo mas tarde';
 
+const MENSAJES_DEL_LECTOR: Record<number, string> = {
+  413: 'La solicitud supera el tamano permitido',
+  415: 'Tipo de contenido no soportado',
+};
+
+/**
+ * Los errores del lector del cuerpo (body-parser) no son HttpException:
+ * traen su codigo 4xx en "status" y expose = true. Antes caian en el 500
+ * generico (hallazgo V-08); son errores del cliente y se responden como tal.
+ */
+function estadoDelLector(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const { status, expose } = error as { status?: unknown; expose?: unknown };
+  return expose === true &&
+    typeof status === 'number' &&
+    status >= 400 &&
+    status < 500
+    ? status
+    : null;
+}
+
 /**
  * Filtro global de errores (OWASP A10:2025, manejo de condiciones
  * excepcionales). Hace tres cosas:
@@ -21,6 +42,8 @@ const MENSAJE_INTERNO = 'Ocurrio un error interno. Intenta de nuevo mas tarde';
  *     un mensaje generico. El detalle y la traza quedan SOLO en el log del
  *     servidor: el cliente nunca ve SQL, rutas de archivos ni versiones.
  *  3. Cada 403 queda en la auditoria como "acceso_denegado".
+ *  4. Los errores 4xx del lector del cuerpo (por ejemplo 413, demasiado
+ *     grande) salen con su codigo y un mensaje propio, no como 500.
  */
 @Catch()
 export class ErroresFiltro implements ExceptionFilter {
@@ -44,6 +67,15 @@ export class ErroresFiltro implements ExceptionFilter {
         });
       }
       respuesta.status(estado).json(error.getResponse());
+      return;
+    }
+
+    const estadoLector = estadoDelLector(error);
+    if (estadoLector) {
+      respuesta.status(estadoLector).json({
+        statusCode: estadoLector,
+        message: MENSAJES_DEL_LECTOR[estadoLector] ?? 'Solicitud invalida',
+      });
       return;
     }
 
