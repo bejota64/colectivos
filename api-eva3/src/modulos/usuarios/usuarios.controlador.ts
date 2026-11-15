@@ -6,11 +6,14 @@ import {
   NotFoundException,
   Post,
 } from '@nestjs/common';
+import { Autenticado } from '../../comun/decoradores/autenticado.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
 import { ConsentimientosRepositorio } from './consentimientos.repositorio';
 import { UsuariosRepositorio } from './usuarios.repositorio';
 
+/** Todo lo de este controlador actua sobre la cuenta propia: sirve a cualquier perfil con sesion. */
+@Autenticado()
 @Controller('usuarios')
 export class UsuariosControlador {
   constructor(
@@ -18,7 +21,7 @@ export class UsuariosControlador {
     private readonly consentimientos: ConsentimientosRepositorio,
   ) {}
 
-  /** Perfil propio. Sin @Roles: basta con tener sesion, cualquiera sea el rol. */
+  /** Perfil propio, cualquiera sea el rol. */
   @Get('yo')
   async verPerfilPropio(@UsuarioActual() sesion: UsuarioSesion) {
     const usuario = await this.usuarios.buscarPorId(sesion.id);
