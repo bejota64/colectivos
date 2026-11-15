@@ -14,6 +14,7 @@ import { BaseDatosServicio } from '../src/comun/base-datos/base-datos.servicio';
 import { CLAVE_PUBLICO } from '../src/comun/decoradores/publico.decorador';
 import { CLAVE_ROLES } from '../src/comun/decoradores/roles.decorador';
 import { MongoServicio } from '../src/comun/mongo/mongo.servicio';
+import { AbordajesRepositorio } from '../src/modulos/abordajes/abordajes.repositorio';
 import { ROLES, type Rol } from '../src/comun/tipos';
 import { configurarAplicacion } from '../src/configurar-aplicacion';
 import { type ConexionesAdmin, conectarComoAdmin } from './datos/admin';
@@ -228,7 +229,37 @@ describe('Seguridad del prototipo (Evaluacion 4)', () => {
   });
 
   describe('V-04 "Me subi" simultaneos no superan el tope diario (OWASP A06:2025, ISO 27002 8.28)', () => {
-    it('con 5 viajes hoy, 12 "me subi" al mismo tiempo dejan exactamente 6', async () => {
+    it('en la base: 12 registros simultaneos del mismo pasajero dejan exactamente 6', async () => {
+      // Se llama directo al repositorio, sin HTTP: asi las 12 inserciones
+      // llegan a PostgreSQL al mismo tiempo, que es la condicion de carrera.
+      const { rows } = await admin.pg.query<{ id: string }>(
+        `INSERT INTO usuarios (nombre_completo, correo_electronico, contrasena_hash, rol)
+         VALUES ('Persona de Prueba', $1, 'x', 'pasajero') RETURNING id`,
+        [`${PREFIJO}carrera-${Date.now()}@ejemplo.cl`],
+      );
+      const pasajeroId = rows[0].id;
+      const repositorio = app.get(AbordajesRepositorio);
+      const resultados = await Promise.all(
+        Array.from({ length: 12 }, () =>
+          repositorio.registrar({
+            pasajeroId,
+            jornadaId: JORNADA_ABIERTA,
+            distanciaM: 10,
+            maximoPorDia: MAXIMO_ABORDAJES_POR_DIA,
+          }),
+        ),
+      );
+      const { rows: conteo } = await admin.pg.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM abordajes WHERE pasajero_id = $1`,
+        [pasajeroId],
+      );
+      expect({
+        registrados: resultados.filter((r) => r !== null).length,
+        total: conteo[0].total,
+      }).toEqual({ registrados: MAXIMO_ABORDAJES_POR_DIA, total: MAXIMO_ABORDAJES_POR_DIA });
+    });
+
+    it('por HTTP: con 5 viajes hoy, 12 "me subi" al mismo tiempo dejan exactamente 6', async () => {
       // Pasajero nuevo con consentimiento de ubicacion.
       const correo = `${PREFIJO}${Date.now()}@ejemplo.cl`;
       await request(servidor).post('/api/autenticacion/registro').send({
