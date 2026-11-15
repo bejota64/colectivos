@@ -7,10 +7,12 @@
 | `docker-compose.yml` | Levanta PostgreSQL 16 y MongoDB 7 con los scripts de inicio |
 | `bd/postgres/inicio/01_esquema.sql` | 15 tablas, claves primarias y foráneas, reglas e índices |
 | `bd/postgres/inicio/02_datos_prueba.sql` | Trazado ficticio 9001 con usuarios, flota, jornadas y demanda |
+| `bd/postgres/inicio/03_cuenta_api.sql` | Cuenta de la API con permisos mínimos: sin DELETE, TRUNCATE ni cambios de estructura (Eva 4) |
 | `bd/postgres/consultas_ejemplo.sql` | 7 consultas, una por pantalla del MVP |
 | `bd/postgres/pruebas_integridad.sql` | 29 pruebas: la base debe rechazar cada dato inválido |
 | `bd/postgres/rendimiento/` | Prueba de rendimiento de PostgreSQL con `pgbench`: 4 consultas y el script que las ejecuta |
 | `bd/mongo/inicio/01_colecciones.js` | 3 colecciones con validador, índices geoespaciales y de caducidad |
+| `bd/mongo/inicio/02_cuenta_api.js` | Cuenta de la API: la auditoría solo se lee y se inserta, nunca se modifica ni se borra (Eva 4) |
 | `bd/mongo/consultas_ejemplo.js` | 6 consultas, incluida una geoespacial y una de rechazo |
 | `bd/mongo/pruebas_validador.js` | 10 comprobaciones: el validador y el índice único rechazan cada aviso inválido |
 | `docs/diagrama_er.png` / `.svg` / `.dot` | Diagrama entidad-relación generado desde la base real |
@@ -31,6 +33,11 @@ docker compose exec mongo sh -c 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME
 ```
 
 Para empezar de cero: `docker compose down -v` y volver a levantar.
+
+Cada base tiene dos cuentas: la dueña (`POSTGRES_USUARIO`, `MONGO_USUARIO`), solo para
+los scripts y para limpiar datos en las pruebas, y la de la API (`POSTGRES_API_USUARIO`,
+`MONGO_API_USUARIO`), con permisos mínimos. Las cuentas de la API se crean solo la primera
+vez que se levantan las bases: si ya existían, hay que hacer `docker compose down -v`.
 
 ## Reglas que NO valida la base y debe validar el backend
 

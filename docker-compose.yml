@@ -6,6 +6,10 @@
 #   3. Los scripts de bd/*/inicio se ejecutan solos la PRIMERA vez.
 #      Para volver a empezar desde cero: docker compose down -v
 #
+# Cada base tiene dos cuentas: la duena (POSTGRES_USUARIO / MONGO_USUARIO),
+# solo para los scripts y las pruebas, y la de la API (*_API_USUARIO), con
+# permisos minimos. La API nunca usa la cuenta duena.
+#
 # Los puertos se publican solo en 127.0.0.1: las bases no quedan
 # accesibles desde la red ni desde internet.
 
@@ -17,6 +21,9 @@ services:
       POSTGRES_DB: colectivos
       POSTGRES_USER: ${POSTGRES_USUARIO}
       POSTGRES_PASSWORD: ${POSTGRES_CONTRASENA}
+      # Las lee bd/postgres/inicio/03_cuenta_api.sql
+      POSTGRES_API_USUARIO: ${POSTGRES_API_USUARIO}
+      POSTGRES_API_CONTRASENA: ${POSTGRES_API_CONTRASENA}
       TZ: America/Santiago
     ports:
       - "127.0.0.1:5432:5432"
@@ -37,6 +44,9 @@ services:
       MONGO_INITDB_DATABASE: colectivos
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USUARIO}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_CONTRASENA}
+      # Las lee bd/mongo/inicio/02_cuenta_api.js
+      MONGO_API_USUARIO: ${MONGO_API_USUARIO}
+      MONGO_API_CONTRASENA: ${MONGO_API_CONTRASENA}
       TZ: America/Santiago
     ports:
       - "127.0.0.1:27017:27017"
