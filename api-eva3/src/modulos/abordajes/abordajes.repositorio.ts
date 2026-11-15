@@ -32,10 +32,15 @@ export class AbordajesRepositorio {
   }
 
   /**
-   * Registra el abordaje en UNA sentencia que vuelve a comprobar que la
-   * jornada siga abierta y que no se pase el tope diario. Si entre la
-   * validacion del servicio y este INSERT la jornada se cerro, no se
-   * inserta nada (devuelve null). El sentido sale de la jornada, no del cliente.
+   * Registra el abordaje volviendo a comprobar que la jornada siga abierta y
+   * que no se pase el tope diario. Si no se cumple, no inserta nada y
+   * devuelve null. El sentido sale de la jornada, no del cliente.
+   *
+   * Hallazgo V-04: con varios "me subi" simultaneos del mismo pasajero, cada
+   * INSERT contaba los viajes antes de que los otros se guardaran y el tope
+   * se superaba. Ahora cada pasajero toma un candado (advisory lock) dentro
+   * de la transaccion: sus "me subi" se procesan de a uno y el conteo ve
+   * siempre los anteriores. Pasajeros distintos no se bloquean entre si.
    */
   async registrar(datos: {
     pasajeroId: string;
@@ -43,19 +48,24 @@ export class AbordajesRepositorio {
     distanciaM: number;
     maximoPorDia: number;
   }): Promise<AbordajeCreadoFila | null> {
-    const filas = await this.baseDatos.consultar<AbordajeCreadoFila>(
-      `INSERT INTO abordajes (pasajero_id, jornada_id, sentido_id, distancia_al_vehiculo_m)
-       SELECT $1, j.id, j.sentido_actual_id, $3
-       FROM jornadas j
-       WHERE j.id = $2
-         AND j.finalizada_en IS NULL
-         AND j.sentido_actual_id IS NOT NULL
-         AND (SELECT count(*) FROM abordajes a
-              WHERE a.pasajero_id = $1 AND a.abordado_en >= ${INICIO_DE_HOY}) < $4
-       RETURNING id, abordado_en, distancia_al_vehiculo_m`,
-      [datos.pasajeroId, datos.jornadaId, datos.distanciaM, datos.maximoPorDia],
-    );
-    return filas[0] ?? null;
+    return this.baseDatos.enTransaccion(async (consultar) => {
+      await consultar(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+        datos.pasajeroId,
+      ]);
+      const filas = await consultar<AbordajeCreadoFila>(
+        `INSERT INTO abordajes (pasajero_id, jornada_id, sentido_id, distancia_al_vehiculo_m)
+         SELECT $1, j.id, j.sentido_actual_id, $3
+         FROM jornadas j
+         WHERE j.id = $2
+           AND j.finalizada_en IS NULL
+           AND j.sentido_actual_id IS NOT NULL
+           AND (SELECT count(*) FROM abordajes a
+                WHERE a.pasajero_id = $1 AND a.abordado_en >= ${INICIO_DE_HOY}) < $4
+         RETURNING id, abordado_en, distancia_al_vehiculo_m`,
+        [datos.pasajeroId, datos.jornadaId, datos.distanciaM, datos.maximoPorDia],
+      );
+      return filas[0] ?? null;
+    });
   }
 
   /** Viajes propios, para calificar. La consulta filtra por el pasajero de la sesion. */
