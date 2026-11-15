@@ -8,16 +8,23 @@ import {
   codigoDeError,
   VIOLACION_DE_UNICIDAD,
 } from '../../comun/base-datos/errores-postgres';
-import { motivoFueraDePlazo } from './reglas-valoracion';
+import {
+  type Categoria,
+  motivoCategoriaInvalida,
+  motivoFueraDePlazo,
+  type TipoReporte,
+} from './reglas-valoracion';
 import {
   CalificacionFila,
+  ReporteCreadoFila,
   ValoracionesRepositorio,
 } from './valoraciones.repositorio';
 
 /**
- * Calificacion de 1 a 5 estrellas. Solo califica quien viajo, una vez por
- * viaje y dentro de las 24 horas siguientes (CU-06). El conductor nunca ve
- * quien lo califico: el representante solo recibe promedios.
+ * Valoracion del viaje (CU-06): calificacion de 1 a 5 estrellas y reporte
+ * (queja o felicitacion). Solo valora quien viajo, una vez por viaje y
+ * dentro de las 24 horas siguientes. El conductor nunca ve quien lo
+ * valoro: el representante ve promedios y reportes sin datos del pasajero.
  */
 @Injectable()
 export class ValoracionesServicio {
@@ -48,6 +55,33 @@ export class ValoracionesServicio {
       throw new NotFoundException('Viaje no encontrado');
     }
     return calificacion;
+  }
+
+  async reportar(
+    pasajeroId: string,
+    abordajeId: string,
+    datos: { tipo: TipoReporte; categoria: Categoria; descripcion: string },
+    ahora: Date = new Date(),
+  ): Promise<ReporteCreadoFila> {
+    const motivo = motivoCategoriaInvalida(datos.tipo, datos.categoria);
+    if (motivo) {
+      throw new UnprocessableEntityException(motivo);
+    }
+    await this.exigirViajeValorable(pasajeroId, abordajeId, ahora);
+
+    let reporte: ReporteCreadoFila | null;
+    try {
+      reporte = await this.valoraciones.crearReporte({ abordajeId, pasajeroId, ...datos });
+    } catch (error) {
+      if (codigoDeError(error) === VIOLACION_DE_UNICIDAD) {
+        throw new ConflictException('Ya reportaste este viaje');
+      }
+      throw error;
+    }
+    if (!reporte) {
+      throw new NotFoundException('Viaje no encontrado');
+    }
+    return reporte;
   }
 
   /**
