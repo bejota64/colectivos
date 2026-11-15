@@ -12,6 +12,8 @@ import {
   minutosEstimados,
   numeroTramo,
 } from '../../comun/geo';
+import type { UsuarioSesion } from '../../comun/tipos';
+import { FlotaRepositorio } from '../flota/flota.repositorio';
 import { JornadasRepositorio } from '../jornadas/jornadas.repositorio';
 import { JornadasServicio } from '../jornadas/jornadas.servicio';
 import {
@@ -61,7 +63,23 @@ export class TiempoRealServicio {
     private readonly rutas: RutasServicio,
     private readonly trazados: TrazadosRepositorio,
     private readonly consentimientos: ConsentimientosServicio,
+    private readonly flota: FlotaRepositorio,
   ) {}
+
+  /**
+   * Matriz de permisos: pasajero y administrador ven cualquier trazado;
+   * conductor y representante, solo el suyo.
+   */
+  private async puedeVerTrazado(usuario: UsuarioSesion, trazadoId: string): Promise<boolean> {
+    switch (usuario.rol) {
+      case 'conductor':
+        return (await this.flota.buscarConductor(usuario.id))?.trazado_id === trazadoId;
+      case 'representante':
+        return this.trazados.esDeRepresentante(trazadoId, usuario.id);
+      default:
+        return true;
+    }
+  }
 
   /** El conductor envia su posicion (cada 5 s desde la web). */
   async registrarPosicion(
@@ -144,15 +162,17 @@ export class TiempoRealServicio {
    * vigente aunque esa ubicacion solo se use para calcular y no se guarde.
    */
   async listarColectivos(
-    pasajeroId: string,
+    usuario: UsuarioSesion,
     sentidoId: string,
     pasajero: Coordenada | null,
     ahora: Date = new Date(),
   ): Promise<ColectivoVisible[]> {
     if (pasajero) {
-      await this.consentimientos.exigirGeolocalizacion(pasajeroId);
+      await this.consentimientos.exigirGeolocalizacion(usuario.id);
     }
-    if (!(await this.trazados.buscarSentido(sentidoId))) {
+    const sentido = await this.trazados.buscarSentido(sentidoId);
+    // Un trazado que no puede ver responde 404, igual que uno que no existe.
+    if (!sentido || !(await this.puedeVerTrazado(usuario, sentido.trazado_id))) {
       throw new NotFoundException('Sentido no encontrado');
     }
 

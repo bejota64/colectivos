@@ -16,6 +16,10 @@ export interface AbordajePropioFila {
   patente: string;
   sentido: string;
   estrellas: number | null;
+  /** El pasajero ve los reportes que escribio, con su estado y la respuesta. */
+  reporte_tipo: string | null;
+  reporte_estado: string | null;
+  reporte_respuesta: string | null;
 }
 
 @Injectable()
@@ -71,12 +75,14 @@ export class AbordajesRepositorio {
   /** Viajes propios, para calificar. La consulta filtra por el pasajero de la sesion. */
   listarDePasajero(pasajeroId: string): Promise<AbordajePropioFila[]> {
     return this.baseDatos.consultar<AbordajePropioFila>(
-      `SELECT a.id, a.abordado_en, v.patente, s.sentido, c.estrellas
+      `SELECT a.id, a.abordado_en, v.patente, s.sentido, c.estrellas,
+              r.tipo AS reporte_tipo, r.estado AS reporte_estado, r.respuesta AS reporte_respuesta
        FROM abordajes a
        JOIN jornadas j  ON j.id = a.jornada_id
        JOIN vehiculos v ON v.id = j.vehiculo_id
        JOIN sentidos s  ON s.id = a.sentido_id
        LEFT JOIN calificaciones c ON c.abordaje_id = a.id
+       LEFT JOIN reportes r       ON r.abordaje_id = a.id
        WHERE a.pasajero_id = $1
        ORDER BY a.abordado_en DESC
        LIMIT 20`,

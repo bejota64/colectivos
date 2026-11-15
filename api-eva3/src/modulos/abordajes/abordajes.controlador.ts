@@ -4,12 +4,16 @@ import {
   Delete,
   Get,
   HttpCode,
+  Ip,
+  Param,
+  ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
 import { Roles } from '../../comun/decoradores/roles.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
 import { AbordajesServicio } from './abordajes.servicio';
+import { AvisosRepresentanteServicio } from './avisos-representante.servicio';
 import { AvisosServicio } from './avisos.servicio';
 import { AbordajeDto, AvisoEsperaDto } from './dto/abordajes.dto';
 
@@ -64,5 +68,21 @@ export class AbordajesControlador {
   @Get('mios')
   listarPropios(@UsuarioActual() sesion: UsuarioSesion) {
     return this.abordajes.listarPropios(sesion.id);
+  }
+}
+
+/** Avisos de espera del trazado, vistos por su representante (sin identidad). */
+@Roles('representante')
+@Controller('trazados/:trazadoId/avisos')
+export class AvisosRepresentanteControlador {
+  constructor(private readonly avisos: AvisosRepresentanteServicio) {}
+
+  @Get()
+  listar(
+    @UsuarioActual() sesion: UsuarioSesion,
+    @Param('trazadoId', new ParseUUIDPipe()) trazadoId: string,
+    @Ip() ip: string,
+  ) {
+    return this.avisos.listar(trazadoId, sesion.id, ip);
   }
 }

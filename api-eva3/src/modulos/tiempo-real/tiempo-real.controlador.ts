@@ -6,6 +6,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Autenticado } from '../../comun/decoradores/autenticado.decorador';
 import { Roles } from '../../comun/decoradores/roles.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
@@ -33,8 +34,9 @@ export class TiempoRealControlador {
    * La ubicacion del pasajero es opcional: sin ella ve el mapa, con ella
    * ademas ve en cuantos minutos llega cada colectivo. Esta ubicacion se
    * usa para calcular y NO se guarda, pero igual exige consentimiento.
+   * Lo ven todos los perfiles; conductor y representante, solo su trazado.
    */
-  @Roles('pasajero')
+  @Autenticado()
   @Get('colectivos')
   listarColectivos(
     @UsuarioActual() sesion: UsuarioSesion,
@@ -48,10 +50,6 @@ export class TiempoRealControlador {
       latitud !== undefined && longitud !== undefined
         ? { latitud, longitud }
         : null;
-    return this.tiempoReal.listarColectivos(
-      sesion.id,
-      consulta.sentido_id,
-      pasajero,
-    );
+    return this.tiempoReal.listarColectivos(sesion, consulta.sentido_id, pasajero);
   }
 }
