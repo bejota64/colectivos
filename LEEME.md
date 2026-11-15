@@ -9,6 +9,7 @@
 | `bd/postgres/inicio/02_datos_prueba.sql` | Trazado ficticio 9001 con usuarios, flota, jornadas y demanda |
 | `bd/postgres/inicio/03_cuenta_api.sql` | Cuenta de la API con permisos mínimos: sin DELETE, TRUNCATE ni cambios de estructura (Eva 4) |
 | `bd/postgres/consultas_ejemplo.sql` | 7 consultas, una por pantalla del MVP |
+| `bd/postgres/administracion/alta_trazado.sql` | CU-13: el administrador crea un trazado y su representante con la cuenta dueña |
 | `bd/postgres/pruebas_integridad.sql` | 29 pruebas: la base debe rechazar cada dato inválido |
 | `bd/postgres/rendimiento/` | Prueba de rendimiento de PostgreSQL con `pgbench`: 4 consultas y el script que las ejecuta |
 | `bd/mongo/inicio/01_colecciones.js` | 3 colecciones con validador, índices geoespaciales y de caducidad |
@@ -16,6 +17,7 @@
 | `bd/mongo/consultas_ejemplo.js` | 6 consultas, incluida una geoespacial y una de rechazo |
 | `bd/mongo/pruebas_validador.js` | 10 comprobaciones: el validador y el índice único rechazan cada aviso inválido |
 | `docs/diagrama_er.png` / `.svg` / `.dot` | Diagrama entidad-relación generado desde la base real |
+| `docs/uml/` | Diagramas UML de la Eva 4 como código: casos de uso, componentes, clases, estados y secuencia |
 | `pruebas-carga/` | 2 pruebas de carga de la API con k6 |
 | `api-autenticacion/` | Módulo de autenticación en NestJS, sus pruebas y la guía para construirlo (`GUIA.md`) |
 

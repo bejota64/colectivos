@@ -44,7 +44,8 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO :"api_usuario";
 
 -- Insercion: solo donde la aplicacion inserta.
 GRANT INSERT ON usuarios, consentimientos, tokens_refresco, jornadas,
-                abordajes, calificaciones, demanda_por_tramo
+                abordajes, calificaciones, reportes, demanda_por_tramo,
+                tarifas, vehiculos, conductores
     TO :"api_usuario";
 
 -- Actualizacion: solo las columnas que la aplicacion cambia.
@@ -52,3 +53,13 @@ GRANT UPDATE (aceptado_en, revocado_en) ON consentimientos TO :"api_usuario";
 GRANT UPDATE (revocado_en) ON tokens_refresco TO :"api_usuario";
 GRANT UPDATE (asientos_disponibles, sentido_actual_id, finalizada_en) ON jornadas TO :"api_usuario";
 GRANT UPDATE (avisos, personas) ON demanda_por_tramo TO :"api_usuario";
+GRANT UPDATE (vigente_hasta) ON tarifas TO :"api_usuario";
+GRANT UPDATE (marca, modelo, anio, capacidad, activo) ON vehiculos TO :"api_usuario";
+GRANT UPDATE (habilitado) ON conductores TO :"api_usuario";
+GRANT UPDATE (estado, respuesta, gestionado_por, cerrado_en) ON reportes TO :"api_usuario";
+-- Perfil propio, restablecer contrasena y eliminar la cuenta propia
+-- (anonimizarla). La columna rol NO esta: la API no puede cambiar el rol
+-- de nadie, ni aunque alguien tome el control de esta cuenta. Los roles
+-- los asigna solo el administrador, con la cuenta duena (CU-13).
+GRANT UPDATE (nombre_completo, telefono, correo_electronico, contrasena_hash,
+              activo, eliminado_en) ON usuarios TO :"api_usuario";
