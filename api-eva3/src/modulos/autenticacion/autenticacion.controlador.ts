@@ -20,7 +20,7 @@ import { RegistroDto } from './dto/registro.dto';
 export const COOKIE_REFRESCO = 'token_refresco';
 
 /** 20 intentos por minuto por IP en las rutas que reciben credenciales. */
-const LIMITE_CREDENCIALES = { default: { limit: 20, ttl: 60_000 } };
+export const LIMITE_CREDENCIALES = { default: { limit: 20, ttl: 60_000 } };
 
 /**
  * HttpOnly: JavaScript no puede leer la cookie.

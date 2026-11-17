@@ -1,0 +1,9 @@
+---
+title: Estados del colectivo en el mapa (CU-03)
+---
+stateDiagram-v2
+  [*] --> Visible : señal de 30 s o menos
+  Visible --> Atenuado : sin señal 30 s
+  Atenuado --> Oculto : sin señal 2 min
+  Atenuado --> Visible : nueva posición
+  Oculto --> Visible : nueva posición

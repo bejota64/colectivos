@@ -1,0 +1,10 @@
+---
+title: Estados del aviso de espera (CU-04)
+---
+stateDiagram-v2
+  [*] --> Activo : Estoy esperando (suma la demanda)
+  Activo --> Terminado : Ya no espero / Me subí
+  Terminado --> Activo : reactivar (no suma otra vez)
+  Activo --> Caducado : 20 minutos
+  Terminado --> [*]
+  Caducado --> [*]

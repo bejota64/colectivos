@@ -1,0 +1,70 @@
+// Diagrama de componentes de la API (Eva 4). Las dependencias son las
+// "imports" reales de cada *.modulo.ts: ningun modulo depende de una capa
+// superior. Generar: dot -Tsvg 02-componentes.dot -o 02-componentes.svg
+digraph componentes {
+  graph [rankdir=TB, fontname="Inter", fontsize=13, nodesep=0.35, ranksep=0.55, pad=0.3,
+         label="Componentes de la API NestJS y sus bases de datos (Eva 4)", labelloc=t, fontsize=16];
+  node  [shape=component, style="filled", fillcolor="#EEF3FA", color="#1F4E79",
+         fontname="Inter", fontsize=12, margin="0.18,0.08"];
+  edge  [color="#4A5568", arrowhead=vee, style=dashed, fontname="Inter", fontsize=10];
+
+  web [label="Aplicación web (PWA)\n«componente externo»", fillcolor="#F4F4F4", color="#718096"];
+
+  subgraph cluster_c4 { label="Capa 4 · Análisis (solo lee)"; style="rounded,filled"; fillcolor="#F7F7F9"; color="#A0AEC0"; fontname="Inter"; fontsize=12;
+    estadisticas [label="estadisticas\ndemanda, CSV seguro"];
+  }
+  subgraph cluster_c3 { label="Capa 3 · Operación diaria"; style="rounded,filled"; fillcolor="#F7F7F9"; color="#A0AEC0"; fontname="Inter"; fontsize=12;
+    jornadas [label="jornadas\njornada, cierre automático"];
+    tiempo   [label="tiempo-real\nposiciones y mapa"];
+    abordajes [label="abordajes\navisos y «me subí»"];
+    valoraciones [label="valoraciones\ncalificaciones y reportes"];
+  }
+  subgraph cluster_c2 { label="Capa 2 · Datos maestros"; style="rounded,filled"; fillcolor="#F7F7F9"; color="#A0AEC0"; fontname="Inter"; fontsize=12;
+    trazados [label="trazados\nrecorrido, pertenencia"];
+    tarifas  [label="tarifas\nprecios con historial"];
+    flota    [label="flota\nvehículos y conductores"];
+  }
+  subgraph cluster_c1 { label="Capa 1 · Acceso"; style="rounded,filled"; fillcolor="#F7F7F9"; color="#A0AEC0"; fontname="Inter"; fontsize=12;
+    autenticacion [label="autenticacion\nsesión, cuenta propia"];
+    usuarios [label="usuarios\nperfil, consentimientos"];
+    auditoria [label="auditoria «global»\nregistro y consulta"];
+  }
+  subgraph cluster_comun { label="Común (global)"; style="rounded,filled"; fillcolor="#EDEDED"; color="#A0AEC0"; fontname="Inter"; fontsize=12;
+    guards [label="guards\nlímite → sesión → roles"];
+    filtros [label="ErroresFiltro"];
+    basedatos [label="base-datos\nconsultar, enTransaccion"];
+    mongo [label="mongo"];
+  }
+
+  pg [shape=cylinder, label="PostgreSQL 16\ncuenta colectivos_api:\nsin DELETE ni DDL", fillcolor="#FFFFFF"];
+  mg [shape=cylinder, label="MongoDB 7\nrol api_colectivos:\nauditoría solo lectura e inserción", fillcolor="#FFFFFF"];
+
+  web -> guards [label=" HTTPS / JSON", style=solid, constraint=false];
+
+  // Orden vertical de las capas (aristas invisibles: solo ubican)
+  edge [style=invis, constraint=true];
+  web -> estadisticas;
+  estadisticas -> {jornadas tiempo abordajes valoraciones};
+  {jornadas tiempo abordajes valoraciones} -> {trazados tarifas flota};
+  {trazados tarifas flota} -> {autenticacion usuarios auditoria};
+  {autenticacion usuarios auditoria} -> {guards filtros basedatos mongo};
+  edge [style=dashed, constraint=false];
+
+  // Dependencias reales entre modulos (imports)
+  estadisticas -> trazados;
+  jornadas -> flota; jornadas -> trazados; jornadas -> usuarios;
+  tiempo -> jornadas; tiempo -> trazados; tiempo -> usuarios; tiempo -> flota;
+  abordajes -> jornadas; abordajes -> trazados; abordajes -> usuarios;
+  valoraciones -> trazados;
+  tarifas -> trazados;
+  flota -> trazados; flota -> autenticacion;
+  autenticacion -> usuarios;
+
+  // Infraestructura
+  basedatos -> pg [style=solid, label=" SQL parametrizado", constraint=true];
+  mongo -> mg [style=solid, constraint=true];
+  filtros -> auditoria [label=" 403"];
+  auditoria -> mongo;
+
+  {rank=same; pg; mg;}
+}

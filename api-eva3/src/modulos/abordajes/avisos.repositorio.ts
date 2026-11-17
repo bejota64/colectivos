@@ -89,4 +89,22 @@ export class AvisosRepositorio {
       .limit(50)
       .toArray() as Promise<AvisoAdelante[]>;
   }
+
+  /**
+   * Avisos activos de varios sentidos, para el representante. Igual que el
+   * conductor: donde y cuantos, nunca quien ni sus coordenadas.
+   */
+  listarActivosDeSentidos(
+    sentidoIds: string[],
+    ahora: Date,
+  ): Promise<{ sentido_id: string; distancia_ruta_m: number; personas: number }[]> {
+    return this.coleccion
+      .find(
+        { sentido_id: { $in: sentidoIds }, terminado_en: null, expira_en: { $gt: ahora } },
+        { projection: { _id: 0, sentido_id: 1, distancia_ruta_m: 1, personas: 1 } },
+      )
+      .sort({ sentido_id: 1, distancia_ruta_m: 1 })
+      .limit(200)
+      .toArray() as Promise<{ sentido_id: string; distancia_ruta_m: number; personas: number }[]>;
+  }
 }

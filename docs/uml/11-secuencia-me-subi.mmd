@@ -1,0 +1,41 @@
+---
+title: Secuencia del flujo crítico "Me subí" (CU-05), con los controles de la Eva 4
+---
+sequenceDiagram
+  autonumber
+  actor P as Pasajero (web)
+  participant G as Guards<br/>(límite, sesión, rol)
+  participant C as Abordajes<br/>Controlador
+  participant S as Abordajes<br/>Servicio
+  participant K as Consentimientos<br/>Servicio
+  participant M as MongoDB<br/>(ubicaciones)
+  participant R as Abordajes<br/>Repositorio
+  participant PG as PostgreSQL<br/>(cuenta de la API)
+
+  P->>G: POST /api/abordajes (token)
+  G->>G: sesión y rol pasajero
+  G->>C: DTO validado
+  C->>S: registrar(pasajero,<br/>datos)
+  S->>K: exigirGeolocalizacion()
+  K-->>S: consentimiento<br/>vigente (Ley 21.719)
+  S->>PG: buscar jornada abierta
+  S->>M: última posición del colectivo
+  M-->>S: posición y su antigüedad
+  S->>S: reglas: 200 m, posición < 60 s,<br/>menos de 6 viajes hoy
+  alt alguna regla no se cumple
+    S-->>P: 422 con el motivo (no se guarda nada)
+  else se cumplen
+    S->>R: registrar(pasajeroId, jornadaId, distancia, máximo 6)
+    R->>PG: BEGIN
+    R->>PG: pg_advisory_xact_lock<br/>(pasajero)
+    Note over R,PG: Los «me subí» simultáneos del<br/>mismo pasajero esperan aquí<br/>y pasan de a uno (V-04)
+    R->>PG: INSERT … SELECT con el tope<br/>y la jornada abierta
+    R->>PG: COMMIT
+    alt se insertó
+      R-->>S: abordaje (guarda la distancia, no la ubicación)
+      S-->>P: 201 Creado: habilita calificar y reportar por 24 h
+    else otro "me subí" llenó el tope o la jornada se cerró
+      R-->>S: null
+      S-->>P: 409 Intenta de nuevo
+    end
+  end

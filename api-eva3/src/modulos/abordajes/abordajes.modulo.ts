@@ -5,9 +5,11 @@ import { UsuariosModulo } from '../usuarios/usuarios.modulo';
 import {
   AbordajesControlador,
   AvisosControlador,
+  AvisosRepresentanteControlador,
 } from './abordajes.controlador';
 import { AbordajesRepositorio } from './abordajes.repositorio';
 import { AbordajesServicio } from './abordajes.servicio';
+import { AvisosRepresentanteServicio } from './avisos-representante.servicio';
 import { AvisosRepositorio } from './avisos.repositorio';
 import { AvisosServicio } from './avisos.servicio';
 import { DemandaRepositorio } from './demanda.repositorio';
@@ -15,12 +17,13 @@ import { DemandaRepositorio } from './demanda.repositorio';
 /** Capa de operacion: avisos de espera y "me subi". */
 @Module({
   imports: [JornadasModulo, TrazadosModulo, UsuariosModulo],
-  controllers: [AvisosControlador, AbordajesControlador],
+  controllers: [AvisosControlador, AbordajesControlador, AvisosRepresentanteControlador],
   providers: [
     AbordajesRepositorio,
     AbordajesServicio,
     AvisosRepositorio,
     AvisosServicio,
+    AvisosRepresentanteServicio,
     DemandaRepositorio,
   ],
 })

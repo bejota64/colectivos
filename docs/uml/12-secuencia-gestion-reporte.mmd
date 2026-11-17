@@ -1,0 +1,40 @@
+---
+title: Secuencia de la gestión de un reporte por el representante (CU-11)
+---
+sequenceDiagram
+  autonumber
+  actor RP as Representante
+  participant G as Guards
+  participant S as ReportesGestion<br/>Servicio
+  participant PE as Pertenencia<br/>Servicio
+  participant V as Valoraciones<br/>Repositorio
+  participant A as Auditoria<br/>Servicio
+  participant PG as PostgreSQL
+  participant MG as MongoDB<br/>(registro_eventos)
+
+  RP->>G: PATCH /trazados/{t}/reportes/{r}
+  G->>G: sesión y rol representante
+  G->>S: gestionar(t, r, cambio)
+  S->>PE: exigirTrazadoPropio(t)
+  alt el trazado no es suyo
+    PE->>A: registrar(acceso_denegado)
+    A->>MG: insert
+    PE-->>RP: 404 (no confirma que el trazado exista)
+  else es suyo
+    S->>V: buscarReporteDeTrazado(r, t)
+    V->>PG: SELECT sin datos del pasajero
+    S->>S: valida transición y respuesta
+    alt transición inválida o falta la respuesta
+      S-->>RP: 422 con el motivo
+    else válida
+      S->>V: cambiarEstado(r, estadoAnterior, nuevo, respuesta)
+      V->>PG: UPDATE … WHERE estado = anterior
+      alt otra persona lo cambió entre medio
+        S-->>RP: 409 Vuelve a cargarlo
+      else actualizado
+        S->>A: registrar(cambio_estado_reporte)
+        A->>MG: insert (sin update ni delete)
+        S-->>RP: 200 reporte actualizado
+      end
+    end
+  end

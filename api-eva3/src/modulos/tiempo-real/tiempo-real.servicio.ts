@@ -12,6 +12,8 @@ import {
   minutosEstimados,
   numeroTramo,
 } from '../../comun/geo';
+import type { UsuarioSesion } from '../../comun/tipos';
+import { FlotaRepositorio } from '../flota/flota.repositorio';
 import { JornadasRepositorio } from '../jornadas/jornadas.repositorio';
 import { JornadasServicio } from '../jornadas/jornadas.servicio';
 import {
@@ -36,9 +38,16 @@ export interface ColectivoVisible {
   latitud: number;
   longitud: number;
   actualizado_hace_s: number;
+  /** true si la ultima señal tiene mas de 30 s: la web lo muestra atenuado (CU-03). */
+  atenuado: boolean;
   /** null si no se envio la ubicacion del pasajero o si el colectivo ya paso. */
   minutos_estimados: number | null;
 }
+
+/** CU-03: con mas de 30 s sin señal el colectivo se ve atenuado... */
+export const SENAL_ATENUADA_S = 30;
+/** ...y con mas de 2 minutos se oculta: mostrar un auto "fantasma" seria peor. */
+export const SENAL_OCULTA_S = 120;
 
 /**
  * Mapa en vivo. En el sistema final las posiciones se empujan por
@@ -54,7 +63,23 @@ export class TiempoRealServicio {
     private readonly rutas: RutasServicio,
     private readonly trazados: TrazadosRepositorio,
     private readonly consentimientos: ConsentimientosServicio,
+    private readonly flota: FlotaRepositorio,
   ) {}
+
+  /**
+   * Matriz de permisos: pasajero y administrador ven cualquier trazado;
+   * conductor y representante, solo el suyo.
+   */
+  private async puedeVerTrazado(usuario: UsuarioSesion, trazadoId: string): Promise<boolean> {
+    switch (usuario.rol) {
+      case 'conductor':
+        return (await this.flota.buscarConductor(usuario.id))?.trazado_id === trazadoId;
+      case 'representante':
+        return this.trazados.esDeRepresentante(trazadoId, usuario.id);
+      default:
+        return true;
+    }
+  }
 
   /** El conductor envia su posicion (cada 5 s desde la web). */
   async registrarPosicion(
@@ -137,15 +162,17 @@ export class TiempoRealServicio {
    * vigente aunque esa ubicacion solo se use para calcular y no se guarde.
    */
   async listarColectivos(
-    pasajeroId: string,
+    usuario: UsuarioSesion,
     sentidoId: string,
     pasajero: Coordenada | null,
     ahora: Date = new Date(),
   ): Promise<ColectivoVisible[]> {
     if (pasajero) {
-      await this.consentimientos.exigirGeolocalizacion(pasajeroId);
+      await this.consentimientos.exigirGeolocalizacion(usuario.id);
     }
-    if (!(await this.trazados.buscarSentido(sentidoId))) {
+    const sentido = await this.trazados.buscarSentido(sentidoId);
+    // Un trazado que no puede ver responde 404, igual que uno que no existe.
+    if (!sentido || !(await this.puedeVerTrazado(usuario, sentido.trazado_id))) {
       throw new NotFoundException('Sentido no encontrado');
     }
 
@@ -169,8 +196,7 @@ export class TiempoRealServicio {
       const ultima = ultimas.get(colectivo.jornada_id);
       if (!ultima) continue;
       const edad = (ahora.getTime() - ultima.registrada_en.getTime()) / 1000;
-      // Sin señal reciente no se muestra: mostrar un auto "fantasma" seria peor.
-      if (edad > VIGENCIA_POSICION_S) continue;
+      if (edad > SENAL_OCULTA_S) continue;
 
       const porRecorrer = proyeccionPasajero
         ? proyeccionPasajero.distanciaRutaM - ultima.distancia_ruta_m
@@ -181,6 +207,7 @@ export class TiempoRealServicio {
         latitud: posicion.latitud,
         longitud: posicion.longitud,
         actualizado_hace_s: Math.round(edad),
+        atenuado: edad > SENAL_ATENUADA_S,
         minutos_estimados:
           porRecorrer !== null && porRecorrer >= 0
             ? minutosEstimados(porRecorrer)

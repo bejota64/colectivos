@@ -1,4 +1,5 @@
 import { Controller, Get, NotFoundException, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Autenticado } from '../../comun/decoradores/autenticado.decorador';
 import { Roles } from '../../comun/decoradores/roles.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
@@ -20,6 +21,7 @@ export class TrazadosControlador {
   }
 
   /** Trazados activos con sus sentidos, para elegir donde esperar. Cualquier rol con sesion. */
+  @Autenticado()
   @Get()
   async listarActivos() {
     const trazados = await this.trazados.listarActivos();
@@ -35,6 +37,7 @@ export class TrazadosControlador {
    * Linea del recorrido para dibujarla en el mapa. ParseUUIDPipe responde
    * 400 si el id no es un uuid, antes de tocar la base.
    */
+  @Autenticado()
   @Get('sentidos/:sentidoId/recorrido')
   async verRecorrido(
     @Param('sentidoId', new ParseUUIDPipe()) sentidoId: string,

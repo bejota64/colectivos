@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Ip,
   Param,
   ParseUUIDPipe,
@@ -10,6 +11,7 @@ import { Roles } from '../../comun/decoradores/roles.decorador';
 import { UsuarioActual } from '../../comun/decoradores/usuario-actual.decorador';
 import type { UsuarioSesion } from '../../comun/tipos';
 import { DemandaConsultaDto } from './dto/demanda-consulta.dto';
+import { RangoFechasDto } from './dto/rango-fechas.dto';
 import { EstadisticasServicio } from './estadisticas.servicio';
 
 @Roles('representante')
@@ -41,5 +43,31 @@ export class EstadisticasControlador {
     @Ip() ip: string,
   ) {
     return this.estadisticas.conductores(trazadoId, sesion.id, ip);
+  }
+
+  /** Exportacion de la demanda a CSV (CU-10). */
+  @Get('demanda/csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="demanda.csv"')
+  exportarDemanda(
+    @UsuarioActual() sesion: UsuarioSesion,
+    @Param('trazadoId', new ParseUUIDPipe()) trazadoId: string,
+    @Query() fechas: RangoFechasDto,
+    @Ip() ip: string,
+  ) {
+    return this.estadisticas.exportarDemanda(trazadoId, sesion.id, fechas, ip);
+  }
+
+  /** Exportacion de quejas y felicitaciones a CSV (CU-10). */
+  @Get('reportes/csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="reportes.csv"')
+  exportarReportes(
+    @UsuarioActual() sesion: UsuarioSesion,
+    @Param('trazadoId', new ParseUUIDPipe()) trazadoId: string,
+    @Query() fechas: RangoFechasDto,
+    @Ip() ip: string,
+  ) {
+    return this.estadisticas.exportarReportes(trazadoId, sesion.id, fechas, ip);
   }
 }

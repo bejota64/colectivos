@@ -11,6 +11,14 @@ export interface UsuarioFila {
   activo: boolean;
 }
 
+export interface PerfilFila {
+  id: string;
+  nombre_completo: string;
+  correo_electronico: string;
+  rol: Rol;
+  telefono: string | null;
+}
+
 const COLUMNAS =
   'id, nombre_completo, correo_electronico, contrasena_hash, rol, activo';
 
@@ -79,5 +87,58 @@ export class UsuariosRepositorio {
       }
       throw error;
     }
+  }
+
+  /** Perfil propio: solo nombre y telefono. El correo y el rol no se cambian aqui. */
+  async actualizarPerfil(
+    usuarioId: string,
+    cambios: { nombreCompleto?: string; telefono?: string },
+  ): Promise<PerfilFila | null> {
+    const filas = await this.baseDatos.consultar<PerfilFila>(
+      `UPDATE usuarios SET
+         nombre_completo = coalesce($2, nombre_completo),
+         telefono = coalesce($3, telefono)
+       WHERE id = $1 AND eliminado_en IS NULL
+       RETURNING id, nombre_completo, correo_electronico, rol, telefono`,
+      [usuarioId, cambios.nombreCompleto ?? null, cambios.telefono ?? null],
+    );
+    return filas[0] ?? null;
+  }
+
+  /**
+   * Derecho de supresion (Ley 21.719): la cuenta se anonimiza en vez de
+   * borrarse, para que el historial de viajes, calificaciones y reportes
+   * siga siendo consistente, pero ya no identifica a nadie. En la misma
+   * transaccion se revocan sus consentimientos y se cierran sus sesiones.
+   */
+  anonimizar(usuarioId: string): Promise<boolean> {
+    return this.baseDatos.enTransaccion(async (consultar) => {
+      const filas = await consultar<{ id: string }>(
+        `UPDATE usuarios SET
+           nombre_completo = 'Cuenta eliminada',
+           correo_electronico = 'eliminada-' || id || '@colectivos.invalid',
+           contrasena_hash = '!',
+           telefono = NULL,
+           activo = false,
+           eliminado_en = now()
+         WHERE id = $1 AND eliminado_en IS NULL
+         RETURNING id`,
+        [usuarioId],
+      );
+      if (filas.length === 0) {
+        return false;
+      }
+      await consultar(
+        `UPDATE consentimientos SET revocado_en = now()
+         WHERE usuario_id = $1 AND revocado_en IS NULL`,
+        [usuarioId],
+      );
+      await consultar(
+        `UPDATE tokens_refresco SET revocado_en = now()
+         WHERE usuario_id = $1 AND revocado_en IS NULL`,
+        [usuarioId],
+      );
+      return true;
+    });
   }
 }

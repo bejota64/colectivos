@@ -1,0 +1,79 @@
+---
+title: Clases (4/4) - Diseño del control de acceso
+---
+classDiagram
+  direction TB
+  class ThrottlerGuard {
+    <<guard global 1>>
+    +canActivate(ctx) Booleano
+  }
+  class SesionGuard {
+    <<guard global 2>>
+    +canActivate(ctx) Booleano
+    -extraerToken(peticion) Texto
+  }
+  class RolesGuard {
+    <<guard global 3>>
+    +canActivate(ctx) Booleano
+  }
+  class ErroresFiltro {
+    <<filtro global>>
+    +catch(error, host)
+  }
+  class UsuariosRepositorio {
+    +buscarPorId(id) UsuarioFila
+  }
+  class Publico {
+    <<decorador>>
+  }
+  class Autenticado {
+    <<decorador>>
+  }
+  class Roles {
+    <<decorador>>
+    +roles: Rol[]
+  }
+  class ControladoresRepresentante {
+    <<Roles representante>>
+    tarifas, flota, reportes, jornadas
+  }
+  class TarifasServicio {
+    +fijar(trazadoId, datos)
+    +cerrar(trazadoId, tarifaId)
+  }
+  class FlotaGestionServicio {
+    +crearConductor(trazadoId, datos)
+    +cambiarHabilitado(conductorId, valor)
+  }
+  class ReportesGestionServicio {
+    +listar(trazadoId, estado)
+    +gestionar(reporteId, cambio)
+  }
+  class PertenenciaServicio {
+    +exigirTrazadoPropio(trazadoId, representanteId)
+  }
+  class AuditoriaServicio {
+    +registrar(evento)
+    +listar(filtro, pagina) EventoDoc[]
+  }
+  ThrottlerGuard ..> SesionGuard : luego
+  SesionGuard ..> UsuariosRepositorio : rol y activo desde la base
+  SesionGuard ..> RolesGuard : luego
+  RolesGuard ..> Publico : lee
+  RolesGuard ..> Autenticado : lee
+  RolesGuard ..> Roles : lee
+  RolesGuard ..> ControladoresRepresentante : permite
+  RolesGuard ..> ErroresFiltro : 403
+  ControladoresRepresentante --> TarifasServicio
+  ControladoresRepresentante --> FlotaGestionServicio
+  ControladoresRepresentante --> ReportesGestionServicio
+  TarifasServicio --> PertenenciaServicio
+  FlotaGestionServicio --> PertenenciaServicio
+  ReportesGestionServicio --> PertenenciaServicio
+  PertenenciaServicio ..> AuditoriaServicio : trazado ajeno (404)
+  ErroresFiltro ..> AuditoriaServicio : acceso_denegado
+  note for RolesGuard "Deniega por defecto (V-06): una ruta
+sin Publico, Autenticado ni Roles
+responde 403. Si hay Roles, manda Roles."
+  note for PertenenciaServicio "Rol + pertenencia: un trazado ajeno
+responde 404 y queda en la auditoría."

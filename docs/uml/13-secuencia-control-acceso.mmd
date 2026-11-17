@@ -1,0 +1,46 @@
+---
+title: Secuencia del control de acceso en cada petición (OWASP A01)
+---
+sequenceDiagram
+  autonumber
+  actor U as Cliente
+  participant B as Lector del<br/>cuerpo (16 KB)
+  participant T as ThrottlerGuard
+  participant SG as SesionGuard
+  participant RG as RolesGuard
+  participant H as Controlador<br/>y servicio
+  participant F as ErroresFiltro
+  participant A as Auditoria<br/>Servicio
+
+  U->>B: petición HTTP
+  alt cuerpo de más de 16 KB
+    B->>F: error 413 del lector
+    F-->>U: 413 sin detalles internos (V-08)
+  else
+    B->>T: cuerpo leído
+    alt supera el límite de peticiones por minuto
+      T-->>U: 429
+    else
+      T->>SG: continúa
+      alt ruta @Publico()
+        SG->>RG: continúa sin usuario
+      else sin token, token vencido, alterado o cuenta inactiva
+        SG-->>U: 401
+      else token válido
+        SG->>SG: rol y estado desde la base
+        SG->>RG: continúa con el usuario
+      end
+      alt la ruta no declara Publico, Roles ni Autenticado
+        RG->>F: 403 (deniega por defecto, V-06)
+        F->>A: acceso_denegado
+        F-->>U: 403
+      else rol no permitido
+        RG->>F: 403
+        F->>A: acceso_denegado
+        F-->>U: 403
+      else permitido
+        RG->>H: DTO validado y pertenencia
+        H-->>U: 2xx con Cache-Control no-store (V-07)
+      end
+    end
+  end
